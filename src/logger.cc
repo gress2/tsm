@@ -3,6 +3,6 @@
 namespace logger
 {
 
-std::ofstream debug = std::ofstream("debug.log");
+std::ofstream debug("debug.log");
 
 }
