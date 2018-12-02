@@ -26,12 +26,11 @@ TEST_F(generic_game_test, correctly_inits_from_toml) {
 }
 
 TEST_F(generic_game_test, drew_correct_number_of_child_means) {
-  auto cmeans = game_.get_child_means();
-  for (auto& elem : cmeans) {
-    std::cout << elem << std::endl;
-  }
-
   EXPECT_EQ(game_.get_num_children(), game_.get_child_means().size());
+}
+
+TEST_F(generic_game_test, drew_correct_number_of_child_vars) {
+  EXPECT_EQ(game_.get_num_children(), game_.get_child_vars().size());
 }
 
 int main(int argc, char** argv) {
