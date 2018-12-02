@@ -1,0 +1,10 @@
+depth_r = 130
+depth_p = 0.6567
+disp_mean_delta = 108.382
+disp_mean_beta = 3.44
+disp_var_delta = 4.0
+disp_var_beta = 0.0051
+nc_alpha = 3.966
+nc_beta = -0.0346
+root_mean = 213.493
+root_var = 4273.46
