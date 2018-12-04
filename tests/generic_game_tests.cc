@@ -1,12 +1,12 @@
+#include <cstdlib>
+#include <ctime>
+
 #include "generic_game.hpp"
 #include "gtest/gtest.h"
-
-#include <iostream>
 
 class generic_game_test : public ::testing::Test {
   protected:
     void SetUp() override {}
-
     generic_game::config cfg_{generic_game::get_config_from_toml("../tests/cfg/generic_game.toml")};
     generic_game::game game_{cfg_};
 
@@ -26,11 +26,36 @@ TEST_F(generic_game_test, correctly_inits_from_toml) {
 }
 
 TEST_F(generic_game_test, drew_correct_number_of_child_means) {
-  EXPECT_EQ(game_.get_num_children(), game_.get_child_means().size());
+  EXPECT_EQ(game_.get_available_moves().size(), game_.get_child_means().size());
 }
 
 TEST_F(generic_game_test, drew_correct_number_of_child_vars) {
-  EXPECT_EQ(game_.get_num_children(), game_.get_child_vars().size());
+  EXPECT_EQ(game_.get_available_moves().size(), game_.get_child_vars().size());
+}
+
+TEST_F(generic_game_test, make_move_creates_appropriate_copy) {
+  auto avail_moves = game_.get_available_moves();
+  auto child_means = game_.get_child_means();
+  auto child_vars = game_.get_child_vars();
+
+  int random_move = std::rand() % avail_moves.size();
+  auto next_game_state = game_.make_move(random_move);
+  EXPECT_EQ(next_game_state.get_mean(), child_means[random_move]);
+  EXPECT_EQ(next_game_state.get_var(), child_vars[random_move]);
+  EXPECT_EQ(next_game_state.get_num_moves_made(), 2);
+}
+
+TEST_F(generic_game_test, cumulative_reward_non_zero) {
+  auto game = game_;
+  while (true) {
+    auto moves = game.get_available_moves();
+    if (moves.empty()) {
+      break;
+    }
+    auto random_move = std::rand() % moves.size();
+    game = game.make_move(random_move); 
+  }
+  ASSERT_NE(game.get_cumulative_reward(), 0);
 }
 
 int main(int argc, char** argv) {

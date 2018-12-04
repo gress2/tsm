@@ -25,6 +25,17 @@ void print(T&& iterable) {
 }
 
 /**
+ * Draws a random variable from a Gaussian
+ *
+ * @param mean the mean of the Gaussian
+ * @param sd the standard deviation of the Gaussian
+ */
+double sample_gaussian(const double mean, const double sd) {
+  std::normal_distribution dist(mean, sd);
+  return dist(random_engine::generator);
+}
+
+/**
  * Draws a vector of random variables from a Gaussian distribution
  * 
  * @param mean the mean of the Gaussian

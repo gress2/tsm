@@ -3,6 +3,7 @@
 #include <cmath>
 #include <iostream>
 #include <random>
+#include <stack>
 
 #include "cpptoml.hpp"
 #include "logger.hpp"
@@ -57,23 +58,26 @@ config get_config_from_toml(std::string toml_file_path) {
 
 class game {
   public:
+    using move_type = int;
   private:
     /* Members */
-    const config cfg_;
-    const double mean_;
-    const double var_;
-    const int success_count_;
-    const int num_moves_;
-    const bool is_game_over_;
-    const int num_children_;
-    const std::vector<double> child_means_;
-    const std::vector<double> child_vars_;
+    config cfg_;
+    double mean_;
+    double var_;
+    int success_count_;
+    int num_moves_made_;
+    int num_children_;
+    std::vector<double> child_means_;
+    std::vector<double> child_vars_;
+    std::vector<move_type> available_moves_;
+    double cumulative_reward_;
    
     /* Methods */
-    int draw_num_children() const {
-      double lambda = std::exp(cfg_.nc_alpha + num_moves_ * cfg_.nc_beta);
+    int draw_num_children() const { 
+      double lambda = std::exp(cfg_.nc_alpha + num_moves_made_ * cfg_.nc_beta);
       std::poisson_distribution<int> distribution(lambda);
-      return distribution(random_engine::generator);
+      int num_children = distribution(random_engine::generator);
+      return num_children;
     }
 
     std::vector<double> draw_child_means() const {
@@ -82,6 +86,7 @@ class game {
         std::vector<double> means = sample_gaussian(mean_, std::sqrt(var_), n);
         double scaling_factor = n * mean_ / sum(means);
         means = multiply(means, scaling_factor);
+        return means; // TODO 
         if (sum(square(means)) <= n * var_ + n * mean_ * mean_) {
           return means;
         }
@@ -93,29 +98,101 @@ class game {
       std::vector<double> vars(num_children_, var_);
       return vars;
     }
-    
+
+    /**
+     * Moves for a generic game are simply the indices of children which
+     * we have already drawn means and variances for. This method should be
+     * called by the constructor to build a vector of these indices.
+     *
+     * @return a vector of child indices
+     */
+    std::vector<move_type> find_available_moves() const {
+      std::vector<move_type> moves;
+      for (int i = 0; i < num_children_; i++) {
+        moves.push_back(i);
+      }
+      return moves;
+    }
+
+    /**
+     * If this state is a terminal state in the game, go ahead and draw a final
+     * reward. Otherwise, reward nothing.
+     *
+     * @return the game's final reward
+     */
+    double find_current_reward() const {
+      return num_children_ == 0 ? sample_gaussian(mean_, std::sqrt(var_)) : 0; 
+    }
+
+    /**
+     * The idea here is that we want game states to be more or less immutable.
+     * Additionally, we only want new game states to be made by copying the
+     * previous state and applying a move. We only want this constructor to be
+     * exposed by proxy of the make_move funciton.
+     *
+     * @param other a const reference to the game state to copy from
+     * @param move the move to be made from the previous g ame state
+     * @return a new game state object
+     */ 
+    game(const game& other, move_type move)
+      : cfg_(other.cfg_),
+        mean_(other.child_means_[move]),
+        var_(other.child_vars_[move]),
+        success_count_(other.success_count_),
+        num_moves_made_(other.num_moves_made_ + 1),
+        num_children_(draw_num_children()),
+        child_means_(draw_child_means()),
+        child_vars_(draw_child_vars()),
+        available_moves_(find_available_moves()),
+        cumulative_reward_(other.cumulative_reward_ + find_current_reward())
+    {}
+
   public:
+    /**
+     * The constructor to build a root game state based on a config.
+     * 
+     * @param config a config struct which sets various parameters of the game
+     */ 
     game(config cfg)
       : cfg_(cfg),
         mean_(cfg_.root_mean),
         var_(cfg_.root_var),
         success_count_(0),
-        num_moves_(1),
-        is_game_over_(false),
+        num_moves_made_(1),
         num_children_(draw_num_children()),
         child_means_(draw_child_means()),
-        child_vars_(draw_child_vars())
+        child_vars_(draw_child_vars()),
+        available_moves_(find_available_moves()),
+        cumulative_reward_(find_current_reward())
     {
     }
 
     /**
-     * Getter for the number of children a game state has i.e. the
-     * number of possible moves to be made from the state
-     * 
-     * @return the number of children
+     * Getter for game's mean reward
+     *
+     * @return mean reward
      */
-    int get_num_children() const noexcept {
-      return num_children_;
+    double get_mean() const noexcept {
+      return mean_;
+    }
+
+    /**
+     * Getter for game's reward variance
+     *
+     * @return reward variance
+     */
+    double get_var() const noexcept {
+      return var_;
+    }
+
+    /**
+     * Getter for number of moves which have been made in the
+     * game up to this point
+     *
+     * @return number of moves made in the game so far
+     */
+    int get_num_moves_made() const noexcept {
+      return num_moves_made_;
     }
 
     /**
@@ -136,6 +213,35 @@ class game {
       return child_vars_;
     }
 
+    /**
+     * Getter for vector of available moves of move_type. Returns a copy
+     *
+     * @return a vector of available moves from this game state
+     */
+    std::vector<move_type> get_available_moves() const noexcept {
+      return available_moves_;
+    }
+
+    /**
+     * Getter for the cumulative reward of the game. In this game,
+     * the reward will be zero until you hit the terminal state
+     *
+     * @return the total reward of this game
+     */
+    double get_cumulative_reward() const noexcept {
+      return cumulative_reward_;
+    }
+
+    /**
+     * Makes a move in the current game and returns a new game object
+     * corresponding to the resulting state
+     *
+     * @param move the move to be made from this state
+     * @return a new game state
+     */
+    game make_move(move_type move) const {
+      return game(*this, move);
+    }
 };
  
 }
