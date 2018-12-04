@@ -82,10 +82,14 @@ class game {
 
     std::vector<double> draw_child_means() const {
       int n = num_children_;
+      if (n == 0) {
+        return std::vector<double>{};
+      }
       while (true) {
         std::vector<double> means = sample_gaussian(mean_, std::sqrt(var_), n);
         double scaling_factor = n * mean_ / sum(means);
         means = multiply(means, scaling_factor);
+  
         return means; // TODO 
         if (sum(square(means)) <= n * var_ + n * mean_ * mean_) {
           return means;
@@ -145,7 +149,8 @@ class game {
         child_vars_(draw_child_vars()),
         available_moves_(find_available_moves()),
         cumulative_reward_(other.cumulative_reward_ + find_current_reward())
-    {}
+    {
+    }
 
   public:
     /**
@@ -158,7 +163,7 @@ class game {
         mean_(cfg_.root_mean),
         var_(cfg_.root_var),
         success_count_(0),
-        num_moves_made_(1),
+        num_moves_made_(0),
         num_children_(draw_num_children()),
         child_means_(draw_child_means()),
         child_vars_(draw_child_vars()),

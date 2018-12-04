@@ -32,7 +32,8 @@ void print(T&& iterable) {
  */
 double sample_gaussian(const double mean, const double sd) {
   std::normal_distribution dist(mean, sd);
-  return dist(random_engine::generator);
+  double draw = dist(random_engine::generator);
+  return draw;
 }
 
 /**
@@ -47,7 +48,8 @@ std::vector<double> sample_gaussian(const double mean, const double sd, const in
   std::normal_distribution<double> dist(mean, sd);
   std::vector<double> samples;
   for (int i = 0; i < n; i++) {
-    samples.push_back(dist(random_engine::generator));
+    double draw = dist(random_engine::generator);
+    samples.push_back(draw);
   }
   return samples;
 }
@@ -60,7 +62,7 @@ std::vector<double> sample_gaussian(const double mean, const double sd, const in
  */
 template <class T>
 typename std::remove_reference<T>::type::value_type sum(T&& con) {
-  return std::accumulate(con.cbegin(), con.cend(), 0);
+  return std::accumulate(con.begin(), con.end(), 0.0);
 }
 
 /**

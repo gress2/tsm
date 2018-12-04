@@ -15,6 +15,15 @@ TEST(sum_test, returns_correct_value_rval) {
   ASSERT_EQ(sum(std::vector<int>{1, 2, 3, 4}), 10);
 }
 
+TEST(sum_test, correct_for_single_value_lval) {
+  std::vector<double> num = {3};
+  ASSERT_EQ(sum(num), 3);
+}
+
+TEST(sum_test, correct_for_single_value_rval) {
+  ASSERT_EQ(sum(std::vector<double>{3}), 3); 
+}
+
 TEST(mean_test, returns_correct_value_lval) {
   std::vector<int> nums = {1, 2, 3, 4};
   ASSERT_EQ(mean(nums), 2.5);

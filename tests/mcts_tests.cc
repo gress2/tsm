@@ -28,6 +28,40 @@ TEST_F(mcts_node_test, can_expand_until_terminal) {
   ASSERT_TRUE(prev->is_terminal());
 }
 
+TEST_F(mcts_node_test, depth_is_correct_for_root) {
+  ASSERT_EQ(node_.get_depth(), 0);
+}
+
+TEST_F(mcts_node_test, depth_is_correct_for_depth_1) {
+  auto* node = node_.expand();
+  ASSERT_EQ(node->get_depth(), 1);
+}
+
+TEST_F(mcts_node_test, depth_is_correct_for_depth_4) {
+  auto* node = node_.expand();
+  node = node->expand();
+  node = node->expand();
+  node = node->expand();
+  ASSERT_EQ(node->get_depth(), 4);
+}
+
+TEST_F(mcts_node_test, get_seq_is_correct_for_root) {
+  ASSERT_EQ(node_.get_seq(), std::vector<int>{});
+}
+
+TEST_F(mcts_node_test, get_seq_correct_for_depth_1) {
+  auto* node = node_.expand();
+  ASSERT_EQ(node->get_seq().size(), 1);
+}
+
+TEST_F(mcts_node_test, get_seq_is_correct_for_depth_4) {
+  auto* node = node_.expand();
+  node = node->expand();
+  node = node->expand();
+  node = node->expand();
+  ASSERT_EQ(node->get_seq().size(), 4);
+}
+
 class uct_test : public ::testing::Test {
   protected:
     using config_type = generic_game::config;
@@ -51,7 +85,7 @@ TEST_F(uct_test, tree_policy_returns_non_null) {
 }
 
 TEST_F(uct_test, default_policy_returns_reward) {
-  double reward = uct_.default_policy(node_.get_state());
+  double reward = uct_.default_policy(&node_);
   ASSERT_NE(reward, 0);
 }
 

@@ -1,5 +1,6 @@
 #pragma once
 
+#include <chrono>
 #include <cmath>
 #include <deque>
 #include <limits>
@@ -21,12 +22,14 @@ class node {
     Game game_;
     std::deque<move_type> unused_moves_;
     bool is_terminal_;
+    move_type move_;
   public:
-    node(Game game, node* parent = nullptr)
+    node(Game game, move_type move = move_type{}, node* parent = nullptr)
      : n_(0),
        q_total_(0),
        parent_(parent),
-       game_(game)
+       game_(game),
+       move_(move)
     {
       std::vector<move_type> avail_moves = game_.get_available_moves();
       unused_moves_.insert(unused_moves_.end(), avail_moves.begin(), avail_moves.end()); 
@@ -89,6 +92,24 @@ class node {
       return game_;
     }
 
+    int get_depth() const noexcept {
+      return game_.get_num_moves_made();
+    }
+
+    move_type get_move() const noexcept {
+      return move_;
+    }
+
+    std::vector<move_type> get_seq() const noexcept {
+      std::vector<move_type> seq;
+      const node* cur = this;
+      while (cur->get_parent()) {
+        seq.push_back(cur->get_move());
+        cur = cur->get_parent();
+      }
+      return seq;
+    }
+
     /**
      * setter for the visit count of this node
      *
@@ -118,13 +139,16 @@ class node {
      */
     node* expand() {
       if (unused_moves_.empty()) {
+        if (children_.empty()) {
+          is_terminal_ = true;
+        }
         return nullptr;
       }
       move_type move = unused_moves_.front();
       unused_moves_.pop_front();
 
       Game to_append = game_.make_move(move);
-      children_.push_back(node(to_append, this));
+      children_.push_back(node(to_append, move, this));
       return &(children_.back());
     }
 
@@ -165,11 +189,13 @@ class uct {
     double high_score_;
     std::vector<typename Node::move_type> best_seq_; 
     std::size_t num_iterations_;
+    int max_constructed_depth_;
   public:
     uct(Node root, std::size_t num_iterations = 1e5)
      : root_(root), 
        high_score_(std::numeric_limits<double>::min()),
-       num_iterations_(num_iterations) 
+       num_iterations_(num_iterations),
+       max_constructed_depth_(0) 
     {}
 
     /**
@@ -189,7 +215,9 @@ class uct {
         if (expanded) {
           return expanded;
         } else {
-          cur = cur->best_child();
+          if (!cur->is_terminal()) {
+            cur = cur->best_child();
+          }
         }
       }
       return cur;
@@ -199,17 +227,33 @@ class uct {
      * Takes random actions in a game starting from some
      * initial state until the game ends.
      * 
-     * @param game an initial game state
+     * @param the node to start taking random actions from
      * @return the reward after playing the game out randomly from
      * the initial state.
      */
-    double default_policy(typename Node::state_type game) {
+    double default_policy(Node* v) {
+      auto game = v->get_state();
       auto moves = game.get_available_moves(); 
+      std::vector<typename Node::move_type> random_seq;
       while (!moves.empty()) {
         int random_idx = std::rand() % moves.size();
         auto move = moves[random_idx];
         game = game.make_move(move);
         moves = game.get_available_moves();
+        random_seq.push_back(move);
+      }
+
+      double reward = game.get_cumulative_reward();
+      if (reward > high_score_) {
+        high_score_ = reward;
+        auto prior_seq = v->get_seq();
+        std::reverse(prior_seq.begin(), prior_seq.end());
+        random_seq.insert(random_seq.begin(), prior_seq.begin(), prior_seq.end());
+        best_seq_ = random_seq;
+        std::cout << "depth: " << v->get_depth() << std::endl;
+        std::cout << "seq: ";
+        print(v->get_seq()); 
+        
       }
       return game.get_cumulative_reward();
     } 
@@ -225,8 +269,8 @@ class uct {
     void backup(Node* v, double delta) {
       while (v) {
         v->set_n(v->get_n() + 1);
-        v->set_total_q(v->get_total_q() + delta);
-        v = v->get_parent;
+        v->set_q_total(v->get_q_total() + delta);
+        v = v->get_parent();
       }
     }
 
@@ -235,11 +279,28 @@ class uct {
      * simulate, and backpropagate findings
      */
     void search() {
-      Node* v1 = tree_policy(&root_);
-      double delta = default_policy(v1->get_state());
-      backup(v1, delta);
-    }
+      using clock = std::chrono::high_resolution_clock;
+      using duration = std::chrono::duration<float>;
+      clock::time_point start = clock::now();
 
+      for (std::size_t i = 0; i < num_iterations_; i++) {
+        Node* v1 = tree_policy(&root_);
+        max_constructed_depth_ = std::max(v1->get_depth(), max_constructed_depth_);
+        double delta = default_policy(v1);
+        backup(v1, delta);
+      }
+
+      duration time_elapsed = clock::now() - start;
+      float seconds = time_elapsed.count();
+
+      std::cout << "High score: " << high_score_ << std::endl;
+      std::cout << "High scoring sequence of moves: ";
+      print(best_seq_);
+      std::cout << "Constructed game tree nodes up to depth: " 
+        << max_constructed_depth_ << std::endl;
+      std::cout << "Took " << seconds << "s " << "(" << (num_iterations_ / seconds) 
+        << " iterations per second)" << std::endl;
+    }
 }; 
 
 }
