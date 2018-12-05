@@ -7,6 +7,8 @@
 #include <limits>
 #include <vector>
 
+#include "util.hpp"
+
 static std::size_t node_id = 0;
 
 namespace mcts
@@ -171,7 +173,7 @@ class node {
      */
     node* best_child() {
       node* best = nullptr;
-      double max_uct = std::numeric_limits<double>::min();
+      double max_uct = -std::numeric_limits<double>::max();
       for (auto& child : children_) {
         double n = child.get_n();
         if (!n) {

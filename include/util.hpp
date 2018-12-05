@@ -24,6 +24,18 @@ void print(T&& iterable) {
   std::cout << "]" << std::endl;
 }
 
+template <class T, class V>
+void print(std::vector<std::pair<T, V>>& pair_vec) {
+  std::cout << "[";
+  for (auto it = pair_vec.begin(); it != pair_vec.end(); ++it) {
+    std::cout << "{" << it->first << ", " << it->second << "}";
+    if (std::next(it) != pair_vec.end()) {
+      std::cout << ", ";
+    }
+  }
+  std::cout << "]" << std::endl;
+}
+
 /**
  * Draws a random variable from a Gaussian
  *

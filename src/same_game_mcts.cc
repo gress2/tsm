@@ -11,18 +11,11 @@ int main() {
   same_game::config cfg = same_game::get_config_from_toml(cfg_toml_path);
 
   same_game::game game(cfg);
-  game.print();
+  
+  mcts::node<same_game::game> node(game);
+  mcts::uct uct(node, 1e5);
 
-  auto moves = game.get_available_moves();
-
-  while (!moves.empty()) {
-    int rand_idx = std::rand() % moves.size();
-    auto move = moves[rand_idx];
-    std::cout << "(" << move.first << ", " << move.second << ")" << std::endl;
-    game = game.make_move(move);
-    game.print();
-    moves = game.get_available_moves();
-  }
+  uct.search();
 
   return 0;
 }

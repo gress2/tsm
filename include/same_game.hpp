@@ -73,7 +73,8 @@ class game {
       for (auto& m : adj) {
         board[m.first][m.second] = 0;
       }
-      return std::make_pair(collapse(board), 2);
+      double move_reward = std::pow(adj.size() - 2, 2);
+      return std::make_pair(collapse(board), move_reward);
     }
 
     static bool is_valid_position(const board_type& board, move_type move) noexcept {
@@ -135,6 +136,22 @@ class game {
       return moves;
     }
 
+    static double get_final_score(const board_type& board) {
+      int width = board.size();
+      int height = board[0].size();
+
+      int num_zeroes = 0;
+      for (int i = 0; i < width; i++) {
+        num_zeroes += std::count(board[i].begin(), board[i].end(), 0);
+        if (num_zeroes == height) {
+          break;
+        }
+      }
+
+      int tiles_remaining = width * height - num_zeroes;
+      return tiles_remaining ? -std::pow(tiles_remaining - 2, 2) : 1000;
+    }
+
     game(const game& other, move_type move)
       : cfg_(other.cfg_),
         num_moves_made_(other.num_moves_made_ + 1)
@@ -143,6 +160,9 @@ class game {
       board_ = move_result.first;
       cumulative_reward_ = other.cumulative_reward_ + move_result.second;
       available_moves_ = find_available_moves(board_);
+      if (available_moves_.empty()) {
+        cumulative_reward_ += get_final_score(board_);
+      }
     }
 
   public:
@@ -167,7 +187,7 @@ class game {
       for (int row = cfg_.height - 1; row >= 0; row--) {
         for (int col = 0; col < cfg_.width; col++) {
           auto value = board_[col][row];
-          std::cout << "\033[9" << value << "m" << value << "\033[0m ";
+          std::cout << "\033[9" << (value == 0 ? 8 : value) << "m" << value << "\033[0m ";
         }
         std::cout << std::endl;
       }
