@@ -3,8 +3,11 @@
 #include <chrono>
 #include <cmath>
 #include <deque>
+#include <iostream>
 #include <limits>
 #include <vector>
+
+static std::size_t node_id = 0;
 
 namespace mcts
 {
@@ -23,13 +26,15 @@ class node {
     std::deque<move_type> unused_moves_;
     bool is_terminal_;
     move_type move_;
+    std::size_t node_id_;
   public:
     node(Game game, move_type move = move_type{}, node* parent = nullptr)
      : n_(0),
        q_total_(0),
        parent_(parent),
        game_(game),
-       move_(move)
+       move_(move),
+       node_id_(node_id++)
     {
       std::vector<move_type> avail_moves = game_.get_available_moves();
       unused_moves_.insert(unused_moves_.end(), avail_moves.begin(), avail_moves.end()); 
@@ -110,6 +115,10 @@ class node {
       return seq;
     }
 
+    std::size_t get_node_id() const noexcept {
+      return node_id_;
+    }
+
     /**
      * setter for the visit count of this node
      *
@@ -169,7 +178,7 @@ class node {
           return &child;
         }
         double Q = child.get_q_total();
-        constexpr double C = 2;
+        constexpr double C = 1;
 
         double uct_score = Q / n + C * std::sqrt(2 * std::log(n_) / n);
         if (uct_score > max_uct) {
@@ -190,12 +199,14 @@ class uct {
     std::vector<typename Node::move_type> best_seq_; 
     std::size_t num_iterations_;
     int max_constructed_depth_;
+    std::size_t total_nodes_;
   public:
     uct(Node root, std::size_t num_iterations = 1e5)
      : root_(root), 
        high_score_(std::numeric_limits<double>::min()),
        num_iterations_(num_iterations),
-       max_constructed_depth_(0) 
+       max_constructed_depth_(0),
+       total_nodes_(1)
     {}
 
     /**
@@ -213,6 +224,7 @@ class uct {
       while (!cur->is_terminal()) {
         Node* expanded = cur->expand();
         if (expanded) {
+          total_nodes_++;
           return expanded;
         } else {
           if (!cur->is_terminal()) {
@@ -250,10 +262,6 @@ class uct {
         std::reverse(prior_seq.begin(), prior_seq.end());
         random_seq.insert(random_seq.begin(), prior_seq.begin(), prior_seq.end());
         best_seq_ = random_seq;
-        std::cout << "depth: " << v->get_depth() << std::endl;
-        std::cout << "seq: ";
-        print(v->get_seq()); 
-        
       }
       return game.get_cumulative_reward();
     } 
@@ -292,12 +300,14 @@ class uct {
 
       duration time_elapsed = clock::now() - start;
       float seconds = time_elapsed.count();
-
       std::cout << "High score: " << high_score_ << std::endl;
       std::cout << "High scoring sequence of moves: ";
       print(best_seq_);
-      std::cout << "Constructed game tree nodes up to depth: " 
+      std::cout << "Constructed " << total_nodes_ << " game tree nodes up to depth " 
         << max_constructed_depth_ << std::endl;
+      std::size_t num_terminal_revisits = num_iterations_ - total_nodes_ + 1;
+      std::cout << "Re-visited terminal nodes " << num_terminal_revisits << " times (" 
+        << (num_terminal_revisits / static_cast<double>(num_iterations_) * 100) << "% waste)" << std::endl;
       std::cout << "Took " << seconds << "s " << "(" << (num_iterations_ / seconds) 
         << " iterations per second)" << std::endl;
     }
