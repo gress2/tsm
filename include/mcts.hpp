@@ -14,12 +14,41 @@ static std::size_t node_id = 0;
 namespace mcts
 {
 
+/**
+ * This class is used to get at private members and non-exposed
+ * members of the node class. This is useful for testing
+ */
+template <class Node>
+class node_exposer {
+  private:
+    Node& node_;
+  public:
+    /**
+     * node_exposer constructor. wraps a reference to a node
+     *
+     * @param node a mutable reference to a node
+     */
+    node_exposer(Node& node)
+     : node_(node)
+    {} 
+
+    /**
+     * a getter for a non-const reference the node's children vector
+     *
+     * @return a reference to the wrapped node's children vector
+     */
+    std::vector<Node>& get_children() {
+      return node_.get_children();
+    }
+}; 
+
 template <class Game>
 class node {
   public:
     using move_type = typename Game::move_type;
     using state_type = Game;
   private:
+    friend node_exposer<node>;
     std::size_t n_;
     double q_total_;
     node* parent_;
@@ -99,14 +128,37 @@ class node {
       return game_;
     }
 
+    /**
+     * Gets the number of moves that have occurred in the
+     * wrapped game instance. This shnould correspond to
+     * the depth this node is in a tree search tree.
+     *
+     * @return the number of moves which occurred in the node's game
+     */
     int get_depth() const noexcept {
       return game_.get_num_moves_made();
     }
 
+    /**
+     * This retrieves the move which was taken to arrive at the current
+     * game state. if this is an initial game state move_type{} is returned.
+     * As such, move_type needs to be able to be default constructed.
+     *
+     * @return the move which was taken to arrive at the enclosed game state
+     */
     move_type get_move() const noexcept {
       return move_;
     }
 
+    /**
+     * Loops up a chain of nodes in the tree and appends the move
+     * of each state (see get_move above) until arriving at a root.
+     * This corresponds to the sequence of moves taken in the game
+     * to reach this wrapped game state.
+     *
+     * @return the sequence of moves taken in the game to arrive
+     * at the wrapped game state
+     */
     std::vector<move_type> get_seq() const noexcept {
       std::vector<move_type> seq;
       const node* cur = this;
@@ -114,9 +166,16 @@ class node {
         seq.push_back(cur->get_move());
         cur = cur->get_parent();
       }
+      std::reverse(seq.begin(), seq.end());
       return seq;
     }
 
+    /**
+     * gets the node_id of this node. this is useful for generating
+     * dot files among other things.
+     *
+     * @return the id of this node (an integer)
+     */
     std::size_t get_node_id() const noexcept {
       return node_id_;
     }
@@ -192,6 +251,20 @@ class node {
     }
 };
 
+/**
+ * Wraps uct instances in order to expose their
+ * internals for testing
+ */
+template <class UCT>
+class uct_exposer {
+  private:
+    UCT& uct_;
+  public:
+    uct_exposer(UCT& uct_instance)
+      : uct_(uct_instance)
+    {}
+};
+
 template <class Node>
 class uct {
   public:
@@ -202,6 +275,7 @@ class uct {
     std::size_t num_iterations_;
     int max_constructed_depth_;
     std::size_t total_nodes_;
+    friend uct_exposer<uct>;
   public:
     uct(Node root, std::size_t num_iterations = 1e5)
      : root_(root), 
@@ -261,7 +335,6 @@ class uct {
       if (reward > high_score_) {
         high_score_ = reward;
         auto prior_seq = v->get_seq();
-        std::reverse(prior_seq.begin(), prior_seq.end());
         random_seq.insert(random_seq.begin(), prior_seq.begin(), prior_seq.end());
         best_seq_ = random_seq;
       }
