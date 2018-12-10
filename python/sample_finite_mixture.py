@@ -36,21 +36,28 @@ def get_varpi(k):
     return varpi
 
 def get_varphi2():
-    return np.random.beta(2, 2)
+     return np.random.beta(2, 2)
+
+def get_gamma_k2(varphi2):
+    on_basis = get_orthonormal_basis(2)
+    return on_basis * np.sqrt(varphi2)
 
 def get_gamma(k, varphi2):
-    varpi = get_varpi(k)
-    on_basis = get_orthonormal_basis(k)
-    gamma = np.zeros(k)
-    for i in range(k - 1):
-        mul = np.sqrt(varphi2)
-        for j in range(min(i, k - 3)):
-            mul *= np.sin(varpi[j])
-        if (i < k - 2):
-            mul *= np.cos(varpi[i])
-        else:
-            mul *= np.sin(varpi[i - 1])
-        gamma += on_basis[i] * mul
+    if k == 2:
+        gamma = get_gamma_k2(varphi2)
+    else:
+        varpi = get_varpi(k)
+        on_basis = get_orthonormal_basis(k)
+        gamma = np.zeros(k)
+        for i in range(k - 1):
+            mul = np.sqrt(varphi2)
+            for j in range(min(i, k - 3)):
+                mul *= np.sin(varpi[j])
+            if (i < k - 2):
+                mul *= np.cos(varpi[i])
+            else:
+                mul *= np.sin(varpi[i - 1])
+            gamma += on_basis[i] * mul
     assert np.isclose(np.sum(gamma), 0)
     assert np.isclose(np.sum(gamma**2), varphi2)
     return gamma
@@ -74,6 +81,8 @@ def get_eta(k, varphi2):
     return eta
 
 def get_mixture(mean, sd, k):
+    if k == 1:
+        return (mean, sd)
     p = 1. / k
     varphi2 = get_varphi2()
     gamma = get_gamma(k, varphi2)
@@ -89,8 +98,8 @@ def get_mixture(mean, sd, k):
     return (mu, sigma)
 
 mean = 400
-sd = 50
-k = 10
+sd = 500
+k = 2 
 
 child_means, child_sds = get_mixture(mean, sd, k)
 print(child_means)
