@@ -9,3 +9,6 @@ target_link_libraries(generic_game_mcts ${LIBS})
 add_executable(same_game_mcts same_game_mcts.cc)
 target_link_libraries(same_game_mcts ${LIBS})
 
+add_executable(same_game_pts same_game_pts.cc)
+target_link_libraries(same_game_pts ${LIBS})
+

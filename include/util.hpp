@@ -89,6 +89,22 @@ double mean(T&& con) {
   return con_sum / con.size(); 
 }
 
+template <class T>
+double variance(T&& con) {
+  double con_mean = mean(con);
+  double var = 0;
+  for (auto& elem : con) {
+    var += std::pow(elem - con_mean, 2);
+  }
+  var /= con.size();
+  return var;
+}
+
+template <class T>
+double stddev(T&& con) {
+  return std::sqrt(variance(std::forward<T>(con)));
+}
+
 /**
  * Copies a container and multiplies the value of its elements by a factor.
  * 
