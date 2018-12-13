@@ -75,7 +75,9 @@ class simulator {
     std::size_t max_unf_nodes_;
     std::size_t rollouts_per_node_;
     std::ofstream statistics_file_;
+    std::ofstream mixing_data_file_;
     std::mutex io_mutex_;
+    std::mutex progress_mutex_;
 
     void rollout(node_type* node, std::vector<state_statistics>& range_stats) {
       std::vector<double> rewards;
@@ -105,9 +107,15 @@ class simulator {
       range_stats.push_back(stats);
     }
 
-    void rollout_range(std::vector<node_type*>& worklist, std::size_t start_idx, std::size_t end_idx) {
+    void rollout_range(std::vector<node_type*>& worklist, std::size_t start_idx, std::size_t end_idx, std::size_t& progress) {
       std::vector<state_statistics> range_stats;
       for (std::size_t i = start_idx; i < worklist.size() && i < end_idx; i++) {
+        if (i % 1000 == 0 && i != 0) {
+          std::lock_guard progress_guard(progress_mutex_);
+          progress += 1000;
+          std::cout << "[" << progress << "/" << worklist_.size() << "] (" 
+            << (progress / worklist_.size() * 100) << "%)" << std::endl;
+        }
         rollout(worklist[i], range_stats);
       }
 
@@ -134,7 +142,7 @@ class simulator {
       double mean = 0;
       double v1 = 0;
       double v2 = 0;
-      for (std::pair<double, double>& pair : child_vals) {
+      for (std::pair<double, double>& p : child_vals) {
         mean += p.first / static_cast<double>(n);
         v1 += p.second / static_cast<double>(n);
         v2 += p.first * p.first / static_cast<double>(n);
@@ -142,18 +150,20 @@ class simulator {
 
       double variance = v1 + v2 - mean * mean;
       double sd = std::sqrt(variance);
-      std::size_t depth = node->get_game.get_num_moves_made();
+      std::size_t depth = node->get_game().get_num_moves_made();
       std::size_t k = child_vals.size();
 
-      mixing_data_ << mean << "," << sd << "," << depth << "," << k; 
+      mixing_data_file_ << mean << ", " << sd << ", " << depth << ", " << k << ", "; 
       
       for (auto it = child_vals.begin(); it != child_vals.end(); ++it) {
-        mixing_data_ << "(" << it->first << "," << it->second << ")";
+        mixing_data_file_ << "(" << it->first << "," << it->second << ")";
         if (std::next(it) != child_vals.end()) {
-          mixing_data_ << ",";
+          mixing_data_file_ << ", ";
         }
       }
-      mixing_data_ << std::endl;
+      mixing_data_file_ << std::endl;
+
+      return std::make_pair(mean, sd);
     }
 
   public:
@@ -162,8 +172,9 @@ class simulator {
         worklist_({&root_}),
         num_unf_nodes_(0),
         max_unf_nodes_(max_unf_nodes),
-        rollouts_per_node_(20),
-        statistics_file_("stats.csv")
+        rollouts_per_node_(10),
+        statistics_file_("stats.csv"),
+        mixing_data_file_("mixing_data.csv")
     {}
 
     void simulate() {
@@ -188,13 +199,14 @@ class simulator {
       std::vector<std::thread> threads;
       std::size_t num_threads = std::thread::hardware_concurrency();
       std::size_t workload_per_thread = worklist_.size() / num_threads + 1;
+      std::size_t progress = 0;
 
       for (std::size_t i = 0; i < num_threads; i++) {
         std::size_t start_idx = workload_per_thread * i;
         std::size_t end_idx = start_idx + workload_per_thread;
         auto& wl = worklist_;
-        threads.push_back(std::thread([this, &wl, start_idx, end_idx] {
-          this->rollout_range(wl, start_idx, end_idx);
+        threads.push_back(std::thread([this, &wl, start_idx, end_idx, &progress] {
+          this->rollout_range(wl, start_idx, end_idx, progress);
         }));
       }
 
@@ -206,7 +218,7 @@ class simulator {
 
       auto parent_stats = mix(&root_);
       std::cout << "Root statistics --- (mean: " << parent_stats.first <<
-        ", stddev: " << parent_stats.second << std::endl;
+        ", stddev: " << parent_stats.second << ")" << std::endl;
     }
 };
 

@@ -150,3 +150,21 @@ T get_from_toml(const std::shared_ptr<cpptoml::table>& tbl, std::string prop) {
   assert(opt);
   return *opt;
 }
+
+template <class Iter>
+bool approx_equal(Iter c1_begin, Iter c1_end, Iter c2_begin, 
+    Iter c2_end, double tolerance = 1e-5) {
+  if (std::distance(c1_begin, c1_end) != std::distance(c2_begin, c2_end)) {
+    return false;
+  }
+
+  while (c1_begin != c1_end) {
+    if (std::abs(*c1_begin - *c2_begin) >= tolerance) {
+      return false;
+    } 
+    ++c1_begin;
+    ++c2_begin;
+  }
+  return true;
+}
+

@@ -3,16 +3,16 @@ import numpy as np
 def get_Fsj(p, s, j):
     if s == 1:
         if j == 1:
-            return -np.sqrt(p)
+            return -np.sqrt(p[1])
         if j == 2:
-            return np.sqrt(p)
+            return np.sqrt(p[0])
         else:
             return 0
     else:
         if j <= s:
-            return -np.sqrt(p*p) / np.sqrt(s * p)
+            return -np.sqrt(p[j-1]*p[s]) / np.sqrt(np.sum(p[0:s]))
         if j == s + 1:
-            return np.sqrt(s * p)
+            return np.sqrt(np.sum(p[0:s]))
         else:
             return 0
 
@@ -24,7 +24,7 @@ def get_Fs(p, s, k):
     return np.array(Fs)
 
 def get_orthonormal_basis(k):
-    p = 1 / float(k)
+    p = np.ones(k) * 1 / float(k)
     F = list()
     for i in range(1, k):
         orth_vec = get_Fs(p, i, k)
@@ -42,11 +42,12 @@ def get_gamma_k2(varphi2):
     on_basis = get_orthonormal_basis(2)
     return on_basis * np.sqrt(varphi2)
 
-def get_gamma(k, varphi2):
+def get_gamma(k, varpi, varphi2):
+    print('varpi: ', varpi)
+    print('varphi2: ', varphi2)
     if k == 2:
         gamma = get_gamma_k2(varphi2)
     else:
-        varpi = get_varpi(k)
         on_basis = get_orthonormal_basis(k)
         gamma = np.zeros(k)
         for i in range(k - 1):
@@ -60,6 +61,7 @@ def get_gamma(k, varphi2):
             gamma += on_basis[i] * mul
     assert np.isclose(np.sum(gamma), 0)
     assert np.isclose(np.sum(gamma**2), varphi2)
+    print('gamma: ', gamma)
     return gamma
 
 def get_eta(k, varphi2):
@@ -86,7 +88,7 @@ def get_mixture(mean, sd, k):
     p = 1. / k
     varphi2 = get_varphi2()
     print(varphi2)
-    gamma = get_gamma(k, varphi2)
+    gamma = get_gamma(k, get_varpi(k), varphi2)
     eta = get_eta(k, varphi2)
     alpha = gamma / np.sqrt(p)
     tau = eta / np.sqrt(p)
