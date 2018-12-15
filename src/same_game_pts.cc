@@ -12,7 +12,7 @@ int main() {
 
   same_game::game game(cfg);
 
-  pts::simulator<same_game::game> sim(game, 1e5);
+  pts::simulator<same_game::game> sim(game, 100);
 
   sim.simulate();
   return 0;

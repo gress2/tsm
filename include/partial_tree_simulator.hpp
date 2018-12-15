@@ -6,6 +6,7 @@
 #include <utility>
 #include <vector>
 
+#include "finite_mixture.hpp"
 #include "util.hpp"
 
 namespace pts
@@ -139,13 +140,20 @@ class simulator {
         child_vals.push_back(mix(&child));
       } 
 
+      std::vector<double> child_sds;
+      for (auto& elem : child_vals) {
+        child_sds.push_back(elem.second);
+      }
+
       double mean = 0;
       double v1 = 0;
       double v2 = 0;
+
       for (std::pair<double, double>& p : child_vals) {
         mean += p.first / static_cast<double>(n);
-        v1 += p.second / static_cast<double>(n);
-        v2 += p.first * p.first / static_cast<double>(n);
+        
+        v1 += p.first * p.first / static_cast<double>(n);
+        v2 += p.second * p.second / static_cast<double>(n);
       }
 
       double variance = v1 + v2 - mean * mean;
@@ -153,8 +161,11 @@ class simulator {
       std::size_t depth = node->get_game().get_num_moves_made();
       std::size_t k = child_vals.size();
 
-      mixing_data_file_ << mean << ", " << sd << ", " << depth << ", " << k << ", "; 
-      
+      double varphi2 = reverse_to_varphi2(sd, child_sds);
+
+      mixing_data_file_ << mean << ", " << sd << ", " 
+        << depth << ", " << k << ", " << varphi2 << ", "; 
+
       for (auto it = child_vals.begin(); it != child_vals.end(); ++it) {
         mixing_data_file_ << "(" << it->first << "," << it->second << ")";
         if (std::next(it) != child_vals.end()) {

@@ -8,6 +8,7 @@
 #include "cpptoml.hpp"
 #include "logger.hpp"
 #include "random_engine.hpp"
+#include "finite_mixture.hpp"
 #include "util.hpp"
 
 namespace generic_game 
@@ -21,14 +22,10 @@ namespace generic_game
 struct config {
   int depth_r;
   double depth_p;
-  double disp_mean_delta;
-  double disp_mean_beta;
-  double disp_var_delta;
-  double disp_var_beta;
   double nc_alpha;
   double nc_beta;
   double root_mean;
-  double root_var;
+  double root_sd;
 };
 
 /**
@@ -45,14 +42,10 @@ config get_config_from_toml(std::string toml_file_path) {
   config cfg;
   cfg.depth_r = get_from_toml<decltype(cfg.depth_r)>(tbl, "depth_r");
   cfg.depth_p = get_from_toml<decltype(cfg.depth_p)>(tbl, "depth_p");
-  cfg.disp_mean_delta = get_from_toml<decltype(cfg.disp_mean_delta)>(tbl, "disp_mean_delta");
-  cfg.disp_mean_beta = get_from_toml<decltype(cfg.disp_mean_beta)>(tbl, "disp_mean_beta");
-  cfg.disp_var_delta = get_from_toml<decltype(cfg.disp_var_delta)>(tbl, "disp_var_delta");
-  cfg.disp_var_beta = get_from_toml<decltype(cfg.disp_var_beta)>(tbl, "disp_var_beta");
   cfg.nc_alpha = get_from_toml<decltype(cfg.nc_alpha)>(tbl, "nc_alpha");
   cfg.nc_beta = get_from_toml<decltype(cfg.nc_alpha)>(tbl, "nc_beta");
   cfg.root_mean = get_from_toml<decltype(cfg.root_mean)>(tbl, "root_mean");
-  cfg.root_var = get_from_toml<decltype(cfg.root_var)>(tbl, "root_var");
+  cfg.root_sd = get_from_toml<decltype(cfg.root_sd)>(tbl, "root_sd");
   return cfg;
 }
 
@@ -63,12 +56,12 @@ class game {
     /* Members */
     config cfg_;
     double mean_;
-    double var_;
+    double sd_;
     int success_count_;
     int num_moves_made_;
     int num_children_;
     std::vector<double> child_means_;
-    std::vector<double> child_vars_;
+    std::vector<double> child_sds_;
     std::vector<move_type> available_moves_;
     double cumulative_reward_;
    
@@ -78,29 +71,6 @@ class game {
       std::poisson_distribution<int> distribution(lambda);
       int num_children = distribution(random_engine::generator);
       return num_children;
-    }
-
-    std::vector<double> draw_child_means() const {
-      int n = num_children_;
-      if (n == 0) {
-        return std::vector<double>{};
-      }
-      while (true) {
-        std::vector<double> means = sample_gaussian(mean_, std::sqrt(var_), n);
-        double scaling_factor = n * mean_ / sum(means);
-        means = multiply(means, scaling_factor);
-  
-        return means; // TODO 
-        if (sum(square(means)) <= n * var_ + n * mean_ * mean_) {
-          return means;
-        }
-      }
-    }
-
-    std::vector<double> draw_child_vars() const {
-      // TODO
-      std::vector<double> vars(num_children_, var_);
-      return vars;
     }
 
     /**
@@ -125,7 +95,7 @@ class game {
      * @return the game's final reward
      */
     double find_current_reward() const {
-      return num_children_ == 0 ? sample_gaussian(mean_, std::sqrt(var_)) : 0; 
+      return num_children_ == 0 ? sample_gaussian(mean_, sd_) : 0; 
     }
 
     /**
@@ -141,15 +111,18 @@ class game {
     game(const game& other, move_type move)
       : cfg_(other.cfg_),
         mean_(other.child_means_[move]),
-        var_(other.child_vars_[move]),
+        sd_(other.child_sds_[move]),
         success_count_(other.success_count_),
         num_moves_made_(other.num_moves_made_ + 1),
         num_children_(draw_num_children()),
-        child_means_(draw_child_means()),
-        child_vars_(draw_child_vars()),
         available_moves_(find_available_moves()),
         cumulative_reward_(other.cumulative_reward_ + find_current_reward())
     {
+      std::vector<double> p(num_children_, 1. / num_children_);
+      std::pair<std::vector<double>, std::vector<double>> mixture_dist = 
+        sample_finite_mixture(p, mean_, sd_, 2, 2);
+      child_means_ = std::move(mixture_dist.first);
+      child_sds_ = std::move(mixture_dist.second);
     }
 
   public:
@@ -161,15 +134,18 @@ class game {
     game(config cfg)
       : cfg_(cfg),
         mean_(cfg_.root_mean),
-        var_(cfg_.root_var),
+        sd_(cfg_.root_sd),
         success_count_(0),
         num_moves_made_(0),
         num_children_(draw_num_children()),
-        child_means_(draw_child_means()),
-        child_vars_(draw_child_vars()),
         available_moves_(find_available_moves()),
         cumulative_reward_(find_current_reward())
     {
+      std::vector<double> p(num_children_, 1. / num_children_);
+      std::pair<std::vector<double>, std::vector<double>> mixture_dist = 
+        sample_finite_mixture(p, mean_, sd_, 2, 2);
+      child_means_ = std::move(mixture_dist.first);
+      child_sds_ = std::move(mixture_dist.second);
     }
 
     /**
@@ -186,8 +162,8 @@ class game {
      *
      * @return reward variance
      */
-    double get_var() const noexcept {
-      return var_;
+    double get_sd() const noexcept {
+      return sd_;
     }
 
     /**
@@ -214,8 +190,8 @@ class game {
      * 
      * @return a vector of size num_children_ of the child vars
      */
-    std::vector<double> get_child_vars() const noexcept {
-      return child_vars_;
+    std::vector<double> get_child_sds() const noexcept {
+      return child_sds_;
     }
 
     /**

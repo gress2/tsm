@@ -12,3 +12,6 @@ target_link_libraries(same_game_mcts ${LIBS})
 add_executable(same_game_pts same_game_pts.cc)
 target_link_libraries(same_game_pts ${LIBS})
 
+add_executable(torch_test torch_test.cc)
+target_link_libraries(torch_test "${TORCH_LIBRARIES}")
+

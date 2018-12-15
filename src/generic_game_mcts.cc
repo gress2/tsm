@@ -11,7 +11,7 @@ int main() {
   generic_game::game game(cfg);
 
   mcts::node<generic_game::game> node(game);
-  mcts::uct uct(node, 1e5); 
+  mcts::uct uct(node, 1e6); 
 
   uct.search();
 

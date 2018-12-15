@@ -5,6 +5,7 @@
 
 #include "beta_distribution.hpp"
 #include "random_engine.hpp"
+#include "util.hpp"
 
 // based on https://arxiv.org/pdf/1601.01178.pdf
 
@@ -155,6 +156,17 @@ std::vector<double> get_eta(const std::vector<double>& p, const std::vector<doub
     eta.push_back(mul);
   } 
   return eta;
+}
+
+double reverse_to_varphi2(double sd, const std::vector<double>& child_sds) {
+  double sum_sq = 0;
+
+  for (auto& elem : child_sds) {
+    sum_sq += std::pow(elem, 2);
+  }
+
+  double varphi2 = 1 - sum_sq / (child_sds.size() * std::pow(sd, 2));
+  return varphi2;
 }
 
 std::pair<std::vector<double>, std::vector<double>> sample_finite_mixture(const std::vector<double>& p, 

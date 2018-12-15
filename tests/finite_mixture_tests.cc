@@ -1,6 +1,6 @@
 #include <iostream>
 
-#include "sample_finite_mixture.hpp"
+#include "finite_mixture.hpp"
 #include "util.hpp"
 #include "gtest/gtest.h"
 
