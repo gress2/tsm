@@ -12,7 +12,7 @@ int main() {
 
   same_game::game game(cfg);
 
-  simulator::deep_tree_simulator<same_game::game> sim(game, 1e5);
+  simulator::deep_tree_simulator<same_game::game> sim(game, 1e6);
   sim.simulate();
 
   return 0;

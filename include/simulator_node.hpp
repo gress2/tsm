@@ -18,6 +18,7 @@ class node {
     node(Game&& game)
       : game_(std::move(game))
     {}
+    
     void expand() {
       std::vector<move_type> moves = game_.get_available_moves();
       for (auto& move : moves) {
