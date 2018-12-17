@@ -1,7 +1,7 @@
 #include <cstdlib>
 #include <ctime>
 
-#include "partial_tree_simulator.hpp"
+#include "deep_tree_simulator.hpp"
 #include "same_game.hpp"
 
 int main() {
@@ -12,7 +12,7 @@ int main() {
 
   same_game::game game(cfg);
 
-  simulator::partial_tree_simulator<same_game::game> sim(game, 300000);
+  simulator::deep_tree_simulator<same_game::game> sim(game, 1e5);
   sim.simulate();
 
   return 0;

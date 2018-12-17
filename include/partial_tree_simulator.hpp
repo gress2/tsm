@@ -7,56 +7,11 @@
 #include <vector>
 
 #include "finite_mixture.hpp"
+#include "simulator_node.hpp"
 #include "util.hpp"
 
-namespace pts
+namespace simulator
 {
-
-template <class Game>
-class node {
-  public:
-    using child_type = node<Game>;
-    using move_type = typename Game::move_type;
-  private:
-    Game game_;
-    std::vector<child_type> children_;
-    double mean_;
-    double sd_;
-  public:
-    node(Game&& game)
-      : game_(std::move(game))
-    {}
-    void expand() {
-      std::vector<move_type> moves = game_.get_available_moves();
-      for (auto& move : moves) {
-        children_.push_back(node{game_.make_move(move)});
-      }
-    }
-
-    std::vector<child_type>& get_children() {
-      return children_;
-    }
-
-    Game get_game() const {
-      return game_;
-    }
-
-    void set_mean(double mean) {
-      mean_ = mean;
-    }
-
-    void set_sd(double sd) {
-      sd_ = sd;
-    }
-
-    double get_mean() const {
-      return mean_;
-    }
-
-    double get_sd() const {
-      return sd_;
-    }
-};
 
 struct state_statistics {
   double mean;
@@ -66,9 +21,9 @@ struct state_statistics {
 };
 
 template <class Game>
-class simulator {
+class partial_tree_simulator {
   public:
-    using node_type = node<Game>;
+    using node_type = simulator::node<Game>;
   private:
     node_type root_;
     std::vector<node_type*> worklist_;
@@ -108,7 +63,8 @@ class simulator {
       range_stats.push_back(stats);
     }
 
-    void rollout_range(std::vector<node_type*>& worklist, std::size_t start_idx, std::size_t end_idx, std::size_t& progress) {
+    void rollout_range(std::vector<node_type*>& worklist, std::size_t start_idx, 
+        std::size_t end_idx, std::size_t& progress) {
       std::vector<state_statistics> range_stats;
       for (std::size_t i = start_idx; i < worklist.size() && i < end_idx; i++) {
         if (i % 1000 == 0 && i != 0) {
@@ -178,7 +134,7 @@ class simulator {
     }
 
   public:
-    simulator(Game game, std::size_t max_unf_nodes) 
+    partial_tree_simulator(Game game, std::size_t max_unf_nodes) 
       : root_(std::move(game)),
         worklist_({&root_}),
         num_unf_nodes_(0),

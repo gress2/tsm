@@ -333,6 +333,10 @@ class game {
       return available_moves_;
     }
 
+    bool has_available_moves() const noexcept {
+      return !available_moves_.empty();
+    }
+
     /**
      * getter for the cumulative reward of this game. returns the sum of
      * rewards for all moves taken thus far in the game.
