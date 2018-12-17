@@ -15,10 +15,12 @@ int main(int argc, const char* argv[]) {
   assert(module != nullptr);
   std::cout << "ok\n";
 
+  auto test_tensor = torch::tensor({static_cast<double>(200), static_cast<double>(30), static_cast<double>(10), static_cast<double>(10)});
+
   std::vector<torch::jit::IValue> inputs;
-  inputs.push_back(torch::ones({1, 3, 224, 224}));
-  
+  inputs.push_back(test_tensor);
+
   at::Tensor output = module->forward(inputs).toTensor();
 
-  std::cout << output.slice(1, 0, 5) << std::endl;
+  std::cout << output << std::endl;
 }

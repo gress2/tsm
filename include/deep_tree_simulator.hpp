@@ -46,7 +46,7 @@ class deep_tree_simulator {
 
     deep_tree_simulator(Game game, std::size_t max_unf_nodes) 
       : root_(std::move(game)),
-        rollouts_per_node_(10),
+        rollouts_per_node_(100),
         num_unf_nodes_(0),
         max_unf_nodes_(max_unf_nodes),
         statistics_file_("stats.csv"),
@@ -133,7 +133,7 @@ class deep_tree_simulator {
         v2 += p.second * p.second / static_cast<double>(n);
       }
 
-      double variance = v1 + v2 - mean * mean;
+      double variance = std::max(0., v1 + v2 - mean * mean);
       double sd = std::sqrt(variance);
       std::size_t depth = node->get_game().get_num_moves_made();
       std::size_t k = child_vals.size();
@@ -141,11 +141,8 @@ class deep_tree_simulator {
       double varphi2 = reverse_to_varphi2(sd, child_sds);
 
       mixing_data_file_ << mean << ", " << sd << ", " 
-        << depth << ", " << k << ", " << varphi2 << std::endl; 
+        << depth << ", " << k << ", " << varphi2 << ", "; 
 
-      /*
-       
-      std::cout << ", ";
       for (auto it = child_vals.begin(); it != child_vals.end(); ++it) {
         mixing_data_file_ << "(" << it->first << "," << it->second << ")";
         if (std::next(it) != child_vals.end()) {
@@ -153,7 +150,6 @@ class deep_tree_simulator {
         }
       }
       mixing_data_file_ << std::endl;
-      */
 
       return std::make_pair(mean, sd);
     }
