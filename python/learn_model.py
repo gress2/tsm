@@ -17,30 +17,34 @@ with open("mixing_data.csv") as mix_data:
 class DispersionModel(torch.jit.ScriptModule):
     def __init__(self):
         super(DispersionModel, self).__init__()
-        self.fc1 = torch.nn.Linear(4, 100)
-        self.fc2 = torch.nn.Linear(100, 50)
-        self.fc3 = torch.nn.Linear(50, 2)
+        self.fc1 = torch.nn.Linear(4, 32)
+        self.fc2 = torch.nn.Linear(32, 16)
+        self.fc3 = torch.nn.Linear(16, 2)
 
     @torch.jit.script_method
     def forward(self, x):
         x = torch.clamp(self.fc1(x), min=0) 
+        x = torch.nn.functional.dropout(x, p=.5)
         x = torch.clamp(self.fc2(x), min=0)
         x = torch.clamp(self.fc3(x), min=.0001) 
         return x
 
+
 x = torch.from_numpy(x)
 y = torch.from_numpy(y)
+model = DispersionModel().double()
 
-device = torch.device("cpu")
+#device = torch.device("cuda")
+#x = torch.from_numpy(x)
+#y = torch.from_numpy(y)
+#model = DispersionModel().double().cuda()
 
-model = DispersionModel()
-model = model.double()
-optimizer = torch.optim.SGD(model.parameters(), lr=1e-8, momentum=0.9)
+optimizer = torch.optim.SGD(model.parameters(), lr=1e-10, momentum=0.9)
 
 train = torch.utils.data.TensorDataset(x, y)
 train_loader = torch.utils.data.DataLoader(train, batch_size=32, shuffle=True)
 
-for epoch in range(200):
+for epoch in range(int(1e4)):
     running_loss = 0.0
     for i, data in enumerate(train_loader, 0):
         inputs, outputs = data
@@ -57,9 +61,9 @@ for epoch in range(200):
         optimizer.step()
 
         running_loss += loss.item()
-        if i % 10 == 9:    # print every 10 mini-batches
+        if i % 100 == 99:    # print every 10 mini-batches
             print('[%d, %5d] loss: %.3f' %
-                  (epoch + 1, i + 1, running_loss / 10))
+                  (epoch + 1, i + 1, running_loss / 100))
             running_loss = 0.0
 
-model.save("dispersion_model.pt")
+model.save("dispersion_model_v1.pt")
