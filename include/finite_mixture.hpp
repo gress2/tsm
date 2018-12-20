@@ -67,19 +67,6 @@ std::vector<std::vector<double>> get_orthonormal_basis(const std::vector<double>
   return basis;
 }
 
-std::vector<double> get_varpi(int k) {
-  std::vector<double> varpi;
-  std::uniform_real_distribution<> dis1(0.0, M_PI);
-
-  for (int i = 0; i < k - 2; i++) {
-    varpi.push_back(dis1(random_engine::generator));
-  } 
-
-  std::uniform_real_distribution<> dis2(0.0, 2 * M_PI);
-  varpi.push_back(dis2(random_engine::generator));
-  return varpi;
-}
-
 double get_varphi2(double alpha = 2, double beta = 2) {
   sftrabbit::beta_distribution dist(alpha, beta);
   return dist(random_engine::generator);
@@ -94,67 +81,43 @@ std::vector<double> get_gamma_for_k2(
   return basis;
 }
 
-std::vector<double> get_gamma(const std::vector<double>& p, 
-    const std::vector<double>& varpi, double varphi2) {
+std::vector<double> get_gamma(const std::vector<double>& p, double varphi2) {
   int k = p.size();
   if (k == 2) {
     return get_gamma_for_k2(p, varphi2);
   } else {
     std::vector<std::vector<double>> basis = get_orthonormal_basis(p);
-    std::vector<double> gamma(k, 0);
-    std::vector<double> coeffs;
 
+    std::vector<double> v;
     for (int i = 0; i < k - 1; i++) {
-      double mul = std::sqrt(varphi2); 
-      for (int j = 0; j < std::min(i, k - 3); j++) {
-        mul *= std::sin(varpi[j]);
-      } 
-      if (i < k - 2) {
-        mul *= std::cos(varpi[i]);
-      } else {
-        mul *= std::sin(varpi[i - 1]);
-      }
-      coeffs.push_back(mul);
+      v.push_back(sample_gaussian(0, 1));
     }
 
-    for (int g = 0; g < basis.size(); g++) {
-      for (int h = 0; h < k; h++) {
-        gamma[h] += basis[g][h] * coeffs[g];
-      } 
+    for (int j = 0; j < v.size(); j++) {
+      for (auto& elem : basis[j]) {
+        elem *= v[j]; 
+      }
+    } 
+
+    std::vector<double> x(k, 0);
+    for (int p = 0; p < basis.size(); p++) {
+      for (int q = 0; q < basis[p].size(); q++) {
+        x[q] += basis[p][q];
+      }
     }
-    return gamma;
+
+    return sample_hypersphere(k, std::sqrt(varphi2), x); 
   }
 }
-
-std::vector<double> get_xi(int k) {
-  std::vector<double> xi;
-  std::uniform_real_distribution<> dis(0.0, M_PI / 2);
-  for (int i = 0; i < k - 1; i++) {
-    xi.push_back(dis(random_engine::generator));
-  } 
-  return xi;
-}
-
-std::vector<double> get_eta(const std::vector<double>& p, const std::vector<double>& xi, 
-    double varphi2) {
+std::vector<double> get_eta(const std::vector<double>& p, double varphi2) {
   int k = p.size(); 
-  std::vector<double> eta;
-  for (int i = 0; i < k; i++) {
-    double mul = std::sqrt(1 - varphi2);
-    if (i == 0) {
-      mul *= std::cos(xi[i]);
-    } else if (i > 0 && i < k - 1) {
-      for (int j = 0; j < i; j++) {
-        mul *= std::sin(xi[j]);
-      }
-      mul *= std::cos(xi[i]);
-    } else if (i == k - 1) {
-      for (int j = 0; j < i; j++) {
-        mul *= std::sin(xi[j]);
-      }
-    }
-    eta.push_back(mul);
-  } 
+
+  std::vector<double> eta = sample_hypersphere(k, std::sqrt(1 - varphi2));
+
+  for (auto& elem : eta) {
+    elem = std::abs(elem);
+  }
+
   return eta;
 }
 
@@ -180,10 +143,8 @@ std::pair<std::vector<double>, std::vector<double>> sample_finite_mixture(const 
     return std::make_pair(std::vector<double>{mean}, std::vector<double>{sd});
   }
   double varphi2 = get_varphi2(beta_a, beta_b);
-  std::vector<double> varpi = get_varpi(k);
-  std::vector<double> gamma = get_gamma(p, varpi, varphi2);
-  std::vector<double> xi = get_xi(k);
-  std::vector<double> eta = get_eta(p, xi, varphi2); 
+  std::vector<double> gamma = get_gamma(p, varphi2);
+  std::vector<double> eta = get_eta(p, varphi2); 
 
   std::vector<double> alpha;
   std::vector<double> tau;

@@ -105,6 +105,20 @@ double stddev(T&& con) {
   return std::sqrt(variance(std::forward<T>(con)));
 }
 
+std::vector<double> sample_hypersphere(int k, double r, std::vector<double> x) {
+  double sum_sq = 0;
+  for (auto& elem : x) {
+    sum_sq += elem * elem;
+  }
+  
+
+  for (auto& elem : x) {
+    elem *= r / std::sqrt(sum_sq);   
+  }
+
+  return x;
+}
+
 std::vector<double> sample_hypersphere(int k, double r) {
   std::vector<double> x;
   for (int i = 0; i < k; i++) {
@@ -168,6 +182,12 @@ T get_from_toml(const std::shared_ptr<cpptoml::table>& tbl, std::string prop) {
   cpptoml::option<T> opt = tbl->get_as<T>(prop);
   assert(opt);
   return *opt;
+}
+
+template <class T>
+bool approx_equal(T lhs, T rhs, double tolerance = 1e-5) {
+  double diff = std::abs(lhs - rhs); 
+  return diff < tolerance;
 }
 
 template <class Iter>
