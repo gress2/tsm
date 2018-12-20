@@ -105,6 +105,25 @@ double stddev(T&& con) {
   return std::sqrt(variance(std::forward<T>(con)));
 }
 
+std::vector<double> sample_hypersphere(int k, double r) {
+  std::vector<double> x;
+  for (int i = 0; i < k; i++) {
+    x.push_back(sample_gaussian(0, 1));
+  }
+
+  double sum_sq = 0;
+  for (auto& elem : x) {
+    sum_sq += elem * elem;
+  }
+  
+
+  for (auto& elem : x) {
+    elem *= r / std::sqrt(sum_sq);   
+  }
+
+  return x;
+}
+
 /**
  * Copies a container and multiplies the value of its elements by a factor.
  * 

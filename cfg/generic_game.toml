@@ -4,3 +4,4 @@ nc_alpha = 3.966
 nc_beta = -0.0346
 root_mean = 213.493
 root_sd = 65
+dispersion_model_path = "../models/dispersion_model.pt"
