@@ -1,6 +1,6 @@
 depth_r = 130
 depth_p = 0.6567
-nc_alpha = 3.966
-nc_beta = -0.0346
-root_mean = 213.493
-root_sd = 65
+root_mean = -780.493
+root_sd = 1950
+dispersion_model_path = "../models/dispersion_model.pt"
+nc_model_path = "../models/nc_model.pt"

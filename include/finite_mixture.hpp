@@ -132,7 +132,7 @@ double reverse_to_varphi2(double sd, const std::vector<double>& child_sds) {
     return 1;
   }
 
-  double varphi2 = 1 - sum_sq / (child_sds.size() * std::pow(sd, 2));
+  double varphi2 = 1 - (sum_sq / (static_cast<double>(child_sds.size()) * std::pow(sd, 2)));
   return varphi2;
 }
 
@@ -142,6 +142,7 @@ std::pair<std::vector<double>, std::vector<double>> sample_finite_mixture(const 
   if (k == 1) {
     return std::make_pair(std::vector<double>{mean}, std::vector<double>{sd});
   }
+
   double varphi2 = get_varphi2(beta_a, beta_b);
   std::vector<double> gamma = get_gamma(p, varphi2);
   std::vector<double> eta = get_eta(p, varphi2); 
@@ -159,6 +160,7 @@ std::pair<std::vector<double>, std::vector<double>> sample_finite_mixture(const 
     mu.push_back(alpha[i] * sd + mean);
     sigma.push_back(tau[i] * sd);
   }
+
   return std::make_pair(std::move(mu), std::move(sigma));
 }
 

@@ -17,9 +17,9 @@ with open("mixing_data.csv") as mix_data:
 class DispersionModel(torch.jit.ScriptModule):
     def __init__(self):
         super(DispersionModel, self).__init__()
-        self.fc1 = torch.nn.Linear(4, 32)
-        self.fc2 = torch.nn.Linear(32, 16)
-        self.fc3 = torch.nn.Linear(16, 2)
+        self.fc1 = torch.nn.Linear(4, 8)
+        self.fc2 = torch.nn.Linear(8, 4)
+        self.fc3 = torch.nn.Linear(4, 2)
 
     @torch.jit.script_method
     def forward(self, x):
@@ -39,7 +39,7 @@ model = DispersionModel().double()
 #y = torch.from_numpy(y)
 #model = DispersionModel().double().cuda()
 
-optimizer = torch.optim.SGD(model.parameters(), lr=1e-10, momentum=0.9)
+optimizer = torch.optim.SGD(model.parameters(), lr=1e-10, momentum=0.7)
 
 train = torch.utils.data.TensorDataset(x, y)
 train_loader = torch.utils.data.DataLoader(train, batch_size=32, shuffle=True)
@@ -47,16 +47,18 @@ train_loader = torch.utils.data.DataLoader(train, batch_size=32, shuffle=True)
 for epoch in range(int(1e4)):
     running_loss = 0.0
     for i, data in enumerate(train_loader, 0):
-        inputs, outputs = data
+        x, y = data
         optimizer.zero_grad()
-        theta_pred = model(inputs) 
-        t1 = torch.lgamma(torch.sum(theta_pred, dim=1))
-        t2 = torch.lgamma(theta_pred[:,0])
-        t3 = torch.lgamma(theta_pred[:,1])
-        t4 = theta_pred[:,0] * torch.log(outputs)
-        t5 = (theta_pred[:,1] - 1) * torch.log(1 - outputs) 
-        comb = t1 - t2 - t3 + t4 + t5
-        loss = -torch.sum(comb)
+        g = model(x)
+
+        l1 = torch.lgamma(torch.sum(g, dim=1))
+        l2 = -1 * torch.lgamma(g[:,0])
+        l3 = -1 * torch.lgamma(g[:,1])
+        l4 = torch.log(y) * (g[:,0] - 1)  
+        l5 = torch.log(1 - y) * (g[:,1] - 1)
+
+        log_likelihood = l1 + l2 + l3 + l4 + l5 
+        loss = -torch.sum(log_likelihood)
         loss.backward()
         optimizer.step()
 
@@ -66,4 +68,4 @@ for epoch in range(int(1e4)):
                   (epoch + 1, i + 1, running_loss / 100))
             running_loss = 0.0
 
-model.save("dispersion_model_v1.pt")
+model.save("dispersion_model.pt")

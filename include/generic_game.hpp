@@ -24,11 +24,10 @@ namespace generic_game
 struct config {
   int depth_r;
   double depth_p;
-  double nc_alpha;
-  double nc_beta;
   double root_mean;
   double root_sd;
   std::string dispersion_model_path;
+  std::string nc_model_path;
 };
 
 /**
@@ -45,12 +44,11 @@ config get_config_from_toml(std::string toml_file_path) {
   config cfg;
   cfg.depth_r = get_from_toml<decltype(cfg.depth_r)>(tbl, "depth_r");
   cfg.depth_p = get_from_toml<decltype(cfg.depth_p)>(tbl, "depth_p");
-  cfg.nc_alpha = get_from_toml<decltype(cfg.nc_alpha)>(tbl, "nc_alpha");
-  cfg.nc_beta = get_from_toml<decltype(cfg.nc_alpha)>(tbl, "nc_beta");
   cfg.root_mean = get_from_toml<decltype(cfg.root_mean)>(tbl, "root_mean");
   cfg.root_sd = get_from_toml<decltype(cfg.root_sd)>(tbl, "root_sd");
   cfg.dispersion_model_path = 
     get_from_toml<decltype(cfg.dispersion_model_path)>(tbl, "dispersion_model_path");
+  cfg.nc_model_path = get_from_toml<decltype(cfg.nc_model_path)>(tbl, "nc_model_path");
   return cfg;
 }
 
@@ -64,6 +62,7 @@ class game {
     double sd_;
     int success_count_;
     int num_moves_made_;
+    std::shared_ptr<torch::jit::script::Module> nc_module_;
     int num_children_;
     std::vector<double> child_means_;
     std::vector<double> child_sds_;
@@ -73,9 +72,21 @@ class game {
    
     /* Methods */
     int draw_num_children() const { 
-      double lambda = std::exp(cfg_.nc_alpha + num_moves_made_ * cfg_.nc_beta);
+      auto input_tensor = torch::tensor({
+        static_cast<double>(mean_), 
+        static_cast<double>(sd_), 
+        static_cast<double>(num_moves_made_)
+      }); 
+
+      std::vector<torch::jit::IValue> input({input_tensor});
+      at::Tensor output = nc_module_->forward(input).toTensor();
+
+      int lambda = static_cast<int>(*(output.data<double>()));
+
       std::poisson_distribution<int> distribution(lambda);
       int num_children = distribution(random_engine::generator);
+
+      std::cout << "lambda: " << lambda << " num_children: " << num_children << std::endl;
       return num_children;
     }
 
@@ -112,6 +123,8 @@ class game {
         static_cast<double>(num_moves_made_)
       }); 
 
+      std::cout << "mean: " << mean_ << " sd: " << sd_ << " k: " << num_children_ << " d: " << num_moves_made_ << std::endl;
+
       std::vector<torch::jit::IValue> input({input_tensor});
       at::Tensor output = dispersion_module_->forward(input).toTensor();
       std::pair<double, double> beta_params(
@@ -137,6 +150,7 @@ class game {
         sd_(other.child_sds_[move]),
         success_count_(other.success_count_),
         num_moves_made_(other.num_moves_made_ + 1),
+        nc_module_(other.nc_module_),
         num_children_(draw_num_children()),
         available_moves_(find_available_moves()),
         cumulative_reward_(other.cumulative_reward_ + find_current_reward()),
@@ -164,12 +178,14 @@ class game {
         sd_(cfg_.root_sd),
         success_count_(0),
         num_moves_made_(0),
+        nc_module_(torch::jit::load(cfg_.nc_model_path)),
         num_children_(draw_num_children()),
         available_moves_(find_available_moves()),
         cumulative_reward_(find_current_reward()),
         dispersion_module_(torch::jit::load(cfg_.dispersion_model_path))
     {
       assert(dispersion_module_ != nullptr);
+      assert(nc_module_ != nullptr);
       std::vector<double> p(num_children_, 1. / num_children_);
 
       auto beta_params = get_beta_params();
