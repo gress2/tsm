@@ -10,25 +10,23 @@ def load_data(path_to_file):
         x = list()
         ys = list()
         for line in split_lines:
-            k = float(line[3])
-            if k == 1:
+            x_line = [float(elem) for elem in line[0:5]]
+            y_line = [float(elem) for elem in line[5:]]
+            if (x_line[4] == 1):
                 continue
-            x.append([float(elem) for elem in line[0:5]])
-            ys.append(torch.DoubleTensor([float(elem) for elem in line[5:]]))
+            x.append(x_line)
+            ys.append(torch.DoubleTensor(y_line))
         return torch.DoubleTensor(x), torch.nn.utils.rnn.pad_sequence(ys, batch_first=True)
 
 x_train, y_train = load_data('train.csv')
 x_test, y_test = load_data('test.csv')
 
 class SDModel(torch.jit.ScriptModule):
-    __constants__ = ['pi']
-
     def __init__(self):
         super(SDModel, self).__init__()
-        self.pi = 1e-10
-        self.fc1 = torch.nn.Linear(5, 5)
-        self.fc2 = torch.nn.Linear(5, 5)
-        self.fc3 = torch.nn.Linear(5, 2)
+        self.fc1 = torch.nn.Linear(5, 10)
+        self.fc2 = torch.nn.Linear(10, 5)
+        self.fc3 = torch.nn.Linear(5, 1)
         self.dropout = torch.nn.Dropout(p=.5)
 
     @torch.jit.script_method
@@ -38,70 +36,79 @@ class SDModel(torch.jit.ScriptModule):
         c2 = ((x[:, 2] - 0.) / (81. - 0.)) - .5
         c3 = ((x[:, 3] - 1.) / (53. - 1.)) - .5
         c4 = x[:,4]
-        eps_ub = torch.sqrt(torch.clamp(1. - x[:,4], min=self.pi))
         x = torch.stack((c0, c1, c2, c3, c4), dim=1)
-        x = self.dropout(torch.clamp(self.fc1(x), min=0.))
-        x = torch.clamp(self.fc2(x), min=0.)
-        x = self.fc3(x)
-        x[:, 0] = torch.clamp(torch.min(x[:,0], eps_ub - self.pi), min=self.pi)
-        x[:, 1] = torch.clamp(x[:, 1], min=self.pi)
+        x = self.dropout(torch.clamp(self.fc1(x), min=0))
+        x = torch.clamp(self.fc2(x), min=0) 
+        x = torch.clamp(self.fc3(x), min=1e-10)
         return x
 
 model = SDModel().double()
-optimizer = torch.optim.SGD(model.parameters(), lr=5e-3, momentum=.9, weight_decay=2e-5)
+optimizer = torch.optim.SGD(model.parameters(), lr=1e-5, momentum=.7, weight_decay=2e-5)
 bs = 32
 train = torch.utils.data.TensorDataset(x_train, y_train)
 train_loader = torch.utils.data.DataLoader(train, batch_size=bs, shuffle=True)
 
-for epoch in range(int(5)):
+for epoch in range(int(1)):
     running_loss = 0.0
     for i, data in enumerate(train_loader, 0):
         x, y = data
         optimizer.zero_grad()
-        fx = model(x)
-
+        epsilon = model(x)[:, 0]
         k = x[:,3]
         varphi2 = x[:,4]
-        epsilon = fx[:,0]
-        omega = fx[:,1]
-        c_lhs = (1. / torch.sqrt(k)) - model.pi
-        c_rhs = epsilon / torch.sqrt(k * (1. - varphi2 + model.pi))
-        c = torch.min(c_lhs, c_rhs)
-        t = torch.sqrt(torch.clamp(1. - ((k - 1.) * (c**2.)), min=0.))
         tau = y
-        eta = tau / (torch.sqrt(k.view(len(k), 1)))
-        v = eta / torch.sqrt(torch.clamp(1. - varphi2.view(len(varphi2), 1), min=model.pi))
+        eta = tau * torch.sqrt(1 / k.view(len(k), 1))
+        v = eta / torch.sqrt(1 - varphi2.view(len(varphi2), 1))
+        sample = v / torch.sum(v, dim=1).view(len(x), 1)
+        batch_log_likelihood = 0.0
+        for j in range(len(x)):
+            sample_actual_sz = k[j].type(torch.LongTensor)
+            sample_j = sample[j][0 : sample_actual_sz]
+            ll1 = torch.lgamma(k[j] * epsilon[j])
+            ll2 = -1 * k[j] * torch.lgamma(epsilon[j])
+            ll3 = (epsilon[j] - 1) * torch.sum(torch.log(sample_j + 1e-10))
+            log_likelihood = ll1 + ll2 + ll3 
+            batch_log_likelihood += log_likelihood
 
-        loss = torch.DoubleTensor(1)
-        loss = 0
+        loss = -batch_log_likelihood
+        avg_loss = loss / len(x)
+        avg_loss.backward()
+        optimizer.step()
 
-        for i in range(bs):
-            ki = k[i]
-            ki_long = ki.type(torch.LongTensor)
-            Z = torch.ones((ki_long, ki_long), dtype=torch.double) * c[i]
-            Z[torch.eye(ki_long).byte()] = t[i]
-            Zinv = Z.inverse()
-            lambda_prime = torch.matmul(Zinv, v[i][0:ki_long])
-            lambda_ = lambda_prime / torch.sum(lambda_prime)
+        running_loss += avg_loss.item()
+        if i % 100 == 99:
+            print('[%d, %5d] avg_loss: %.3f' % (epoch + 1, i + 1, running_loss / 100))
+            running_loss = 0.0
 
+test = torch.utils.data.TensorDataset(x_test, y_test)
+test_loader = torch.utils.data.DataLoader(test, batch_size=32)
 
-            if ki_long < 4:
-                print('lambda')
-                print(lambda_)
-                print('vi')
-                print(v[i])
-                print('eta')
-                print(eta[i])
-                print('tau')
-                print(tau[i])
+test_loss = 0
+ctr = 0
+for i, data in enumerate(test_loader, 0):
+    x, y = data
+    epsilon = model(x)[:, 0]
+    k = x[:,3]
+    varphi2 = x[:,4]
+    tau = y
+    eta = tau * torch.sqrt(1 / k.view(len(k), 1))
+    v = eta / torch.sqrt(1 - varphi2.view(len(varphi2), 1))
+    sample = v / torch.sum(v, dim=1).view(len(x), 1)
+    batch_log_likelihood = 0.0
+    for j in range(len(x)):
+        sample_j_actual_sz = k[j].type(torch.LongTensor)
+        sample_j = sample[j][0 : sample_j_actual_sz]
+        ll1 = torch.lgamma(k[j] * epsilon[j])
+        ll2 = -1 * k[j] * torch.lgamma(epsilon[j])
+        ll3 = (epsilon[j] - 1) * torch.sum(torch.log(sample_j + 1e-10))
+        log_likelihood = ll1 + ll2 + ll3
+        batch_log_likelihood += log_likelihood
+    loss = -batch_log_likelihood
+    avg_loss = loss / len(x)
+    test_loss += avg_loss
+    ctr += 1
+avg_test_loss = test_loss / float(ctr)
+print(avg_test_loss)
 
-            l1 = -torch.lgamma(ki_long * omega[i])
-            l2 = ki_long * torch.lgamma(omega[i])
-            l3 = -(omega[i] - 1.) * torch.sum(torch.log(lambda_))
-            cur_loss = l1 + l2 + l3
-            if (torch.isnan(cur_loss)):
-                loss += 1000
-            else:
-                loss += cur_loss
-        print(loss)
-        exit()
+model.save("sd_model.pt")
+
