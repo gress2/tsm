@@ -1,7 +1,10 @@
+#pragma once
 #include <cmath>
 #include <iostream>
 #include <random>
 #include <vector>
+
+#include <torch/script.h>
 
 #include "beta_distribution.hpp"
 #include "random_engine.hpp"
@@ -27,10 +30,10 @@ double get_fsj(const std::vector<double>& p, int s, int j) {
       }
       return numer / std::sqrt(denom);
     } else if (j == s + 1) {
-      double sum_ps = 0; 
+      double sum_ps = 0;
       for (int l = 0; l < s; l++) {
         sum_ps += p[l];
-      } 
+      }
       return std::sqrt(sum_ps);
     } else {
       return 0;
@@ -95,9 +98,9 @@ std::vector<double> get_gamma(const std::vector<double>& p, double varphi2) {
 
     for (int j = 0; j < v.size(); j++) {
       for (auto& elem : basis[j]) {
-        elem *= v[j]; 
+        elem *= v[j];
       }
-    } 
+    }
 
     std::vector<double> x(k, 0);
     for (int p = 0; p < basis.size(); p++) {
@@ -106,19 +109,47 @@ std::vector<double> get_gamma(const std::vector<double>& p, double varphi2) {
       }
     }
 
-    return sample_hypersphere(k, std::sqrt(varphi2), x); 
+    return sample_hypersphere(k, std::sqrt(varphi2), x);
   }
 }
+
 std::vector<double> get_eta(const std::vector<double>& p, double varphi2) {
-  int k = p.size(); 
-
+  int k = p.size();
   std::vector<double> eta = sample_hypersphere(k, std::sqrt(1 - varphi2));
-
   for (auto& elem : eta) {
     elem = std::abs(elem);
   }
-
   return eta;
+}
+
+std::vector<double> get_eta(
+  const double mean, const double sd, int d, const std::vector<double>& p,
+  double varphi2, std::shared_ptr<torch::jit::script::Module> sd_module = nullptr) {
+  int k = p.size();
+
+  auto input_tensor = torch::ones({2, 5}, torch::kFloat64);
+  input_tensor[0][0] = mean;
+  input_tensor[0][1] = sd;
+  input_tensor[0][2] = static_cast<double>(d);
+  input_tensor[0][3] = static_cast<double>(k);
+  input_tensor[0][4] = varphi2;
+
+  std::vector<torch::jit::IValue> input({input_tensor});
+  at::Tensor output = sd_module->forward(input).toTensor();
+
+  double epsilon = *(output.data<double>());
+  std::vector<double> x = sample_uniform_dirichlet(k, epsilon);
+  double sum_sq = 0;
+  for (auto& elem : x) {
+    sum_sq += elem * elem;
+  }
+  double l2_norm = std::sqrt(sum_sq);
+
+  for (auto& elem : x) {
+    elem *= std::sqrt(1 - varphi2) / l2_norm;
+  }
+
+  return x;
 }
 
 double reverse_to_varphi2(double sd, const std::vector<double>& child_sds) {
@@ -136,8 +167,9 @@ double reverse_to_varphi2(double sd, const std::vector<double>& child_sds) {
   return varphi2;
 }
 
-std::pair<std::vector<double>, std::vector<double>> sample_finite_mixture(const std::vector<double>& p, 
-    double mean, double sd, double beta_a = 2, double beta_b = 2) {
+std::pair<std::vector<double>, std::vector<double>> sample_finite_mixture(const std::vector<double>& p,
+    double mean, double sd, int d, double beta_a = 2, double beta_b = 2,
+    std::shared_ptr<torch::jit::script::Module> sd_module = nullptr) {
   int k = p.size();
   if (k == 1) {
     return std::make_pair(std::vector<double>{mean}, std::vector<double>{sd});
@@ -145,7 +177,7 @@ std::pair<std::vector<double>, std::vector<double>> sample_finite_mixture(const 
 
   double varphi2 = get_varphi2(beta_a, beta_b);
   std::vector<double> gamma = get_gamma(p, varphi2);
-  std::vector<double> eta = get_eta(p, varphi2); 
+  std::vector<double> eta = get_eta(mean, sd, d, p, varphi2, sd_module);
 
   std::vector<double> alpha;
   std::vector<double> tau;
@@ -163,4 +195,3 @@ std::pair<std::vector<double>, std::vector<double>> sample_finite_mixture(const 
 
   return std::make_pair(std::move(mu), std::move(sigma));
 }
-

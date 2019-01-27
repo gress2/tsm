@@ -13,28 +13,33 @@
 #include "finite_mixture.hpp"
 #include "util.hpp"
 
-namespace generic_game 
+namespace generic_game
 {
 
 /**
- * @struct config 
- * 
+ * @struct config
+ *
  * A POD structure for holding generic game configuration
- */ 
+ */
 struct config {
+  int root_children;
   int depth_r;
   double depth_p;
   double root_mean;
   double root_sd;
+  double ppos;
+  double lambda_ve_p;
+  double lambda_ve_n;
+  double omega;
   std::string dispersion_model_path;
-  std::string nc_model_path;
+  std::string sd_model_path;
 };
 
 /**
  * Parses a .toml configuration file for a generic game.
  * Creates a config object and sets its fields based on the
  * values that appear in the .toml file.
- * 
+ *
  * @param toml_file_path the location of the toml file relative to where
  * the executable will be invoked from.
  * @return a generic game config with all fields set
@@ -42,13 +47,18 @@ struct config {
 config get_config_from_toml(std::string toml_file_path) {
   auto tbl = cpptoml::parse_file(toml_file_path);
   config cfg;
+  cfg.root_children = get_from_toml<decltype(cfg.root_children)>(tbl, "root_children");
   cfg.depth_r = get_from_toml<decltype(cfg.depth_r)>(tbl, "depth_r");
   cfg.depth_p = get_from_toml<decltype(cfg.depth_p)>(tbl, "depth_p");
   cfg.root_mean = get_from_toml<decltype(cfg.root_mean)>(tbl, "root_mean");
   cfg.root_sd = get_from_toml<decltype(cfg.root_sd)>(tbl, "root_sd");
-  cfg.dispersion_model_path = 
+  cfg.ppos = get_from_toml<decltype(cfg.ppos)>(tbl, "ppos");
+  cfg.lambda_ve_p = get_from_toml<decltype(cfg.lambda_ve_p)>(tbl, "lambda_ve_p");
+  cfg.lambda_ve_n = get_from_toml<decltype(cfg.lambda_ve_n)>(tbl, "lambda_ve_n");
+  cfg.omega = get_from_toml<decltype(cfg.omega)>(tbl, "omega");
+  cfg.dispersion_model_path =
     get_from_toml<decltype(cfg.dispersion_model_path)>(tbl, "dispersion_model_path");
-  cfg.nc_model_path = get_from_toml<decltype(cfg.nc_model_path)>(tbl, "nc_model_path");
+  cfg.sd_model_path = get_from_toml<decltype(cfg.sd_model_path)>(tbl, "sd_model_path");
   return cfg;
 }
 
@@ -62,32 +72,35 @@ class game {
     double sd_;
     int success_count_;
     int num_moves_made_;
-    std::shared_ptr<torch::jit::script::Module> nc_module_;
+    int num_siblings_;
     int num_children_;
     std::vector<double> child_means_;
     std::vector<double> child_sds_;
     std::vector<move_type> available_moves_;
     double cumulative_reward_;
     std::shared_ptr<torch::jit::script::Module> dispersion_module_;
-   
+    std::shared_ptr<torch::jit::script::Module> sd_module_;
+
     /* Methods */
-    int draw_num_children() const { 
-      auto input_tensor = torch::tensor({
-        static_cast<double>(mean_), 
-        static_cast<double>(sd_), 
-        static_cast<double>(num_moves_made_)
-      }); 
+    int draw_num_children() const {
+      std::bernoulli_distribution ber_dist(cfg_.ppos);
+      int pi = ber_dist(random_engine::generator);
+      int phi = pi ? 1 : -1;
 
-      std::vector<torch::jit::IValue> input({input_tensor});
-      at::Tensor output = nc_module_->forward(input).toTensor();
+      int vareps = 0;
 
-      int lambda = static_cast<int>(*(output.data<double>()));
+      if (phi == 1) {
+        std::poisson_distribution<int> pois_dist(cfg_.lambda_ve_p);
+        vareps = pois_dist(random_engine::generator);
+      } else {
+        std::poisson_distribution<int> pois_dist(cfg_.lambda_ve_n);
+        vareps = pois_dist(random_engine::generator);
+      }
 
-      std::poisson_distribution<int> distribution(lambda);
-      int num_children = distribution(random_engine::generator);
+      int delta = phi * vareps + cfg_.omega;
 
-      std::cout << "lambda: " << lambda << " num_children: " << num_children << std::endl;
-      return num_children;
+      int k = num_siblings_ + delta;
+      return std::max(0, k);
     }
 
     /**
@@ -112,23 +125,21 @@ class game {
      * @return the game's final reward
      */
     double find_current_reward() const {
-      return num_children_ == 0 ? sample_gaussian(mean_, sd_) : 0; 
+      return num_children_ == 0 ? sample_gaussian(mean_, sd_) : 0;
     }
 
     std::pair<double, double> get_beta_params() {
       auto input_tensor = torch::tensor({
-        static_cast<double>(mean_), 
-        static_cast<double>(sd_), 
-        static_cast<double>(num_children_), 
+        static_cast<double>(mean_),
+        static_cast<double>(sd_),
+        static_cast<double>(num_children_),
         static_cast<double>(num_moves_made_)
-      }); 
-
-      std::cout << "mean: " << mean_ << " sd: " << sd_ << " k: " << num_children_ << " d: " << num_moves_made_ << std::endl;
+      });
 
       std::vector<torch::jit::IValue> input({input_tensor});
       at::Tensor output = dispersion_module_->forward(input).toTensor();
       std::pair<double, double> beta_params(
-        *(output.data<double>()), 
+        *(output.data<double>()),
         *(output.data<double>() + 1)
       );
       return beta_params;
@@ -143,55 +154,55 @@ class game {
      * @param other a const reference to the game state to copy from
      * @param move the move to be made from the previous g ame state
      * @return a new game state object
-     */ 
+     */
     game(const game& other, move_type move)
       : cfg_(other.cfg_),
         mean_(other.child_means_[move]),
         sd_(other.child_sds_[move]),
         success_count_(other.success_count_),
         num_moves_made_(other.num_moves_made_ + 1),
-        nc_module_(other.nc_module_),
+        num_siblings_(other.num_children_ - 1),
         num_children_(draw_num_children()),
         available_moves_(find_available_moves()),
         cumulative_reward_(other.cumulative_reward_ + find_current_reward()),
-        dispersion_module_(other.dispersion_module_)
+        dispersion_module_(other.dispersion_module_),
+        sd_module_(other.sd_module_)
     {
       std::vector<double> p(num_children_, 1. / num_children_);
       auto beta_params = get_beta_params();
-      std::pair<std::vector<double>, std::vector<double>> mixture_dist = 
-        sample_finite_mixture(p, mean_, sd_, beta_params.first, beta_params.second);
+      std::pair<std::vector<double>, std::vector<double>> mixture_dist =
+        sample_finite_mixture(p, mean_, sd_, num_moves_made_, beta_params.first, beta_params.second, sd_module_);
       child_means_ = std::move(mixture_dist.first);
       child_sds_ = std::move(mixture_dist.second);
     }
 
-    
-
   public:
     /**
      * The constructor to build a root game state based on a config.
-     * 
+     *
      * @param config a config struct which sets various parameters of the game
-     */ 
+     */
     game(config cfg)
       : cfg_(cfg),
         mean_(cfg_.root_mean),
         sd_(cfg_.root_sd),
         success_count_(0),
         num_moves_made_(0),
-        nc_module_(torch::jit::load(cfg_.nc_model_path)),
-        num_children_(draw_num_children()),
+        num_siblings_(0),
+        num_children_(cfg_.root_children),
         available_moves_(find_available_moves()),
         cumulative_reward_(find_current_reward()),
-        dispersion_module_(torch::jit::load(cfg_.dispersion_model_path))
+        dispersion_module_(torch::jit::load(cfg_.dispersion_model_path)),
+        sd_module_(torch::jit::load(cfg_.sd_model_path))
     {
-      assert(dispersion_module_ != nullptr);
-      assert(nc_module_ != nullptr);
+      assert(dispersion_module_ != nullptr && sd_module_ != nullptr);
+
       std::vector<double> p(num_children_, 1. / num_children_);
 
       auto beta_params = get_beta_params();
 
-      std::pair<std::vector<double>, std::vector<double>> mixture_dist = 
-        sample_finite_mixture(p, mean_, sd_, beta_params.first, beta_params.second);
+      std::pair<std::vector<double>, std::vector<double>> mixture_dist =
+        sample_finite_mixture(p, mean_, sd_, num_moves_made_, beta_params.first, beta_params.second, sd_module_);
 
       child_means_ = std::move(mixture_dist.first);
       child_sds_ = std::move(mixture_dist.second);
@@ -227,7 +238,7 @@ class game {
 
     /**
      * Getter for the vector of drawn child means of this state
-     * 
+     *
      * @return a vector of size num_children_ of the child means
      */
     std::vector<double> get_child_means() const noexcept {
@@ -236,7 +247,7 @@ class game {
 
     /**
      * Getter for the vector of drawn child vars of this state
-     * 
+     *
      * @return a vector of size num_children_ of the child vars
      */
     std::vector<double> get_child_sds() const noexcept {
@@ -250,6 +261,10 @@ class game {
      */
     std::vector<move_type> get_available_moves() const noexcept {
       return available_moves_;
+    }
+
+    bool has_available_moves() const {
+      return !available_moves_.empty();
     }
 
     /**
@@ -273,5 +288,5 @@ class game {
       return game(*this, move);
     }
 };
- 
+
 }
