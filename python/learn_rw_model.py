@@ -5,6 +5,7 @@ import torch.nn.functional as F
 import math
 import matplotlib.pyplot as plt
 
+
 def load_data(path_to_file):
     with open(path_to_file, 'r') as data:
         lines = data.readlines()
@@ -14,6 +15,8 @@ def load_data(path_to_file):
         for line in split_lines:
             x.append(int(line[0]))
             y.append(int(line[2]))
+        print(np.corrcoef(x, y)[0, 1])
+        exit()
         return torch.from_numpy(np.array(x)).double(), torch.from_numpy(np.array(y)).double()
 
 x_train, y_train = load_data('train_dkd.csv')
@@ -26,9 +29,9 @@ train_loader = torch.utils.data.DataLoader(train, batch_size=bs, shuffle=True)
 class RandomWalkModel(torch.jit.ScriptModule):
     def __init__(self):
         super(RandomWalkModel, self).__init__()
-        self.fc1 = torch.nn.Linear(1, 3)
-        self.fc2 = torch.nn.Linear(3, 3)
-        self.fc3 = torch.nn.Linear(3, 4)
+        self.fc1 = torch.nn.Linear(1, 2)
+        self.fc2 = torch.nn.Linear(2, 2)
+        self.fc3 = torch.nn.Linear(2, 3)
 
     @torch.jit.script_method
     def forward(self, x):
@@ -37,17 +40,17 @@ class RandomWalkModel(torch.jit.ScriptModule):
 
         x = torch.clamp(self.fc1(d), min=0)
         x = torch.clamp(self.fc2(x), min=0)
-        x = self.fc3(x)
+        x = torch.clamp(self.fc3(x), min=1e-1)
 
-        p = torch.clamp(torch.clamp(x[:, 0], min=1e-5), max=1-1e-5)
-        lp = torch.clamp(torch.clamp(x[:, 1], min=1e-5), max=5)
-        ln = torch.clamp(torch.clamp(x[:, 2], min=1e-5), max=5)
-        w = torch.clamp(torch.clamp(x[:, 3], min=-5), max=5)
-        return torch.stack((p, lp, ln, w), dim=1)
+        p = torch.clamp(x[:, 0], max=1-1e-1)
+        lp = torch.clamp(x[:, 1], max=5)
+        ln = torch.clamp(x[:, 2], max=5)
+
+        return torch.stack((p, lp, ln), dim=1)
 
 model = RandomWalkModel().double()
-optimizer = torch.optim.SGD(model.parameters(), lr=1e-3, momentum=.7, weight_decay=2e-5)
-bs = 64
+optimizer = torch.optim.SGD(model.parameters(), lr=.01, momentum=.9, weight_decay=.1)
+bs = 512
 train = torch.utils.data.TensorDataset(x_train, y_train)
 train_loader = torch.utils.data.DataLoader(train, batch_size=bs, shuffle=True)
 
@@ -61,7 +64,8 @@ for epoch in range(int(10)):
         pp = theta[:, 0]
         lp = theta[:, 1]
         ln = theta[:, 2]
-        w = theta[:, 3]
+        w = torch.ones(len(x)).double() * -1
+
         delta = y
 
         vareps = delta - w
@@ -70,9 +74,11 @@ for epoch in range(int(10)):
         zero = vareps == 0
 
         loss = torch.ones(len(x)).double()
+
         loss[pos] = torch.log(pp[pos]) + (vareps[pos] * torch.log(lp[pos])) - lp[pos] - torch.lgamma(vareps[pos] + 1)
         loss[neg] = torch.log(1 - pp[neg]) + (-vareps[neg] * torch.log(lp[neg])) - lp[neg] - torch.lgamma(-vareps[neg] + 1)
         loss[zero] = torch.log((pp[zero] / torch.exp(lp[zero])) + ((1 - pp[zero]) / torch.exp(ln[zero])))
+
         loss = -torch.sum(loss)
 
         avg_loss = loss / len(x)
@@ -96,8 +102,13 @@ for i, data in enumerate(test_loader, 0):
     pp = theta[:, 0]
     lp = theta[:, 1]
     ln = theta[:, 2]
-    w = theta[:, 3]
+    w = torch.ones(len(x)).double() * -1
+
     delta = y
+
+    print(x)
+    print(y)
+    print(theta)
 
     vareps = delta - w
     pos = vareps > 0
@@ -107,7 +118,7 @@ for i, data in enumerate(test_loader, 0):
     loss = torch.ones(len(x)).double()
     loss[pos] = torch.log(pp[pos]) + (vareps[pos] * torch.log(lp[pos])) - lp[pos] - torch.lgamma(vareps[pos] + 1)
     loss[neg] = torch.log(1 - pp[neg]) + (-vareps[neg] * torch.log(lp[neg])) - lp[neg] - torch.lgamma(-vareps[neg] + 1)
-    loss[zero] = torch.log((pp[zero] / torch.exp(lp[zero])) + ((1 - pp_z) / torch.exp(ln[zero])))
+    loss[zero] = torch.log((pp[zero] / torch.exp(lp[zero])) + ((1 - pp[zero]) / torch.exp(ln[zero])))
     loss = -torch.sum(loss)
     avg_loss = loss / len(x)
     test_loss += avg_loss

@@ -67,7 +67,7 @@ class game {
       int col_sz = board[0].size();
 
       for (int i = 0; i < board.size(); i++) {
-        int num_removed = 0; 
+        int num_removed = 0;
         for (auto it = board[i].begin(); it != board[i].end();) {
           if (*it == 0) {
             it = board[i].erase(it);
@@ -82,13 +82,13 @@ class game {
       int vectors_removed = 0;
       bool have_seen_non_empty = false;
       for (auto it = board.rbegin(); it != board.rend();) {
-        bool is_all_zero = std::all_of(it->begin(), it->end(), [](short i) { return i==0; }); 
+        bool is_all_zero = std::all_of(it->begin(), it->end(), [](short i) { return i==0; });
         if (is_all_zero) {
           if (have_seen_non_empty) {
             it = static_cast<decltype(it)>(board.erase(std::next(it).base()));
             vectors_removed++;
             continue;
-          }        
+          }
         } else {
           have_seen_non_empty = true;
         }
@@ -138,7 +138,7 @@ class game {
      *
      * @param board a const reference to a board instance
      * @param move a board position with which to retrieve a value
-     */ 
+     */
     static short get_value(const board_type& board, move_type move) noexcept {
       return board[move.first][move.second];
     }
@@ -156,15 +156,15 @@ class game {
      * @param move a position on the board to check
      * @param target_value the color which we are interested in matching with
      * @param adj a reference to the set of color adjacent tiles we are building
-     * @param visited a reference to the set of tiles where we have already been 
+     * @param visited a reference to the set of tiles where we have already been
      */
-    static void get_color_adjacent_tiles(const board_type& board, move_type move, 
+    static void get_color_adjacent_tiles(const board_type& board, move_type move,
         short target_value, std::set<move_type>& adj, std::set<move_type>& visited) {
       if (visited.find(move) == visited.end()) {
         visited.insert(move);
         if (is_valid_position(board, move) && get_value(board, move) == target_value) {
           adj.insert(move);
-          move_type left(move.first, move.second - 1); 
+          move_type left(move.first, move.second - 1);
           move_type right(move.first, move.second + 1);
           move_type up(move.first + 1, move.second);
           move_type down(move.first - 1, move.second);
@@ -180,7 +180,7 @@ class game {
     /**
      * This function dispatches a series of recursive calls to find the set of tiles from
      * (and including) the passed position, move, which form a chain of adjacent tiles sharing
-     * the same color as move. 
+     * the same color as move.
      *
      * @param board a const reference to a board instance
      * @param move the position on the board to find the color adjacent set from
@@ -202,7 +202,7 @@ class game {
      * bridging the gap between them. Only the left-most, down-most tile in each chain is
      * returned as a move. This is to prevent having multiple tiles available as moves which
      * all have the same consequence when taken, thus greatly reducing the branching factor
-     * of the game. 
+     * of the game.
      *
      * @param a const reference to a board instance
      * @return a vector of available moves which can be made on the passed board
@@ -297,7 +297,7 @@ class game {
           col.push_back(space_value);
         }
         board_.push_back(col);
-      } 
+      }
 
       available_moves_ = find_available_moves(board_);
     }
@@ -317,7 +317,7 @@ class game {
 
     /**
      * gets the number of moves which have occurred so far in this game.
-     * 
+     *
      * @return the number of moves which have occurred
      */
     int get_num_moves_made() const noexcept {
@@ -331,6 +331,10 @@ class game {
      */
     std::vector<move_type> get_available_moves() const noexcept {
       return available_moves_;
+    }
+
+    int get_num_available_moves() const noexcept {
+      return available_moves_.size();
     }
 
     bool has_available_moves() const noexcept {
@@ -348,7 +352,7 @@ class game {
     }
 
     /**
-     * Returns a newly constructed game state by taking a move on 
+     * Returns a newly constructed game state by taking a move on
      * the current game state.
      *
      * @param move the move to be taken on the current state

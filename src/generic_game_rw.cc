@@ -10,11 +10,17 @@ int main() {
 
   using game = generic_game::game;
 
-  std::ofstream rw_stats("rw_stats");
+  std::ofstream rw_stats("generic_game_rw_stats");
+  std::ofstream td_stats("generic_game_td");
 
   game g(cfg);
+  int num_iters = 1e4;
 
-  for (int i = 0; i < 1000; i++) {
+  for (int i = 0; i < num_iters; i++) {
+    if (i % 1000 == 0) {
+      std::cout << "[" << i << "/" << num_iters << "]" << "\n";
+    }
+
     game cur(g);
     auto moves = cur.get_available_moves();
     while (!moves.empty()) {
@@ -27,6 +33,7 @@ int main() {
       rw_stats << mean << ", " << sd << ", " << d << ", " << k << "\n";
       moves = cur.get_available_moves();
     }
+    td_stats << cur.get_num_moves_made() << "\n";
   }
 
 }

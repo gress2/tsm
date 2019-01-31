@@ -9,7 +9,7 @@
 
 /**
  * Writes the values of an iterable container to stdout
- * 
+ *
  * @param iterable a universal reference to an iterable container
  */
 template <class T>
@@ -50,7 +50,7 @@ double sample_gaussian(const double mean, const double sd) {
 
 /**
  * Draws a vector of random variables from a Gaussian distribution
- * 
+ *
  * @param mean the mean of the Gaussian
  * @param sd the standard deviation of the Gaussian
  * @param n the number of samples to draw (and size of returned vector)
@@ -66,9 +66,23 @@ std::vector<double> sample_gaussian(const double mean, const double sd, const in
   return samples;
 }
 
+std::vector<double> sample_uniform_dirichlet(int k, double epsilon) {
+  std::gamma_distribution<double> dist(epsilon, 1.0);
+  std::vector<double> x;
+  for (int i = 0; i < k; i++) {
+    x.push_back(dist(random_engine::generator));
+  }
+
+  double sum = std::accumulate(x.begin(), x.end(), 0.0);
+  for (auto& elem : x) {
+    elem /= sum;
+  }
+  return x;
+}
+
 /**
  * Calculates the arithmetic sum of the elements of an iterable container
- * 
+ *
  * @param con a universal reference to an iterable container
  * @return the arithmetic sum
  */
@@ -79,14 +93,14 @@ typename std::remove_reference<T>::type::value_type sum(T&& con) {
 
 /**
  * Calculates the arithmetic mean of the elements of an iterable container
- * 
+ *
  * @param con a universal reference to an iterable container
  * @return the arithmetic sum
  */
 template <class T>
 double mean(T&& con) {
   double con_sum = sum(std::forward<T>(con));
-  return con_sum / con.size(); 
+  return con_sum / con.size();
 }
 
 template <class T>
@@ -107,13 +121,12 @@ double stddev(T&& con) {
 
 std::vector<double> sample_hypersphere(int k, double r, std::vector<double> x) {
   double sum_sq = 0;
-  for (auto& elem : x) {
+  for (const auto& elem : x) {
     sum_sq += elem * elem;
   }
-  
-
+  double x_norm = std::sqrt(sum_sq);
   for (auto& elem : x) {
-    elem *= r / std::sqrt(sum_sq);   
+    elem *= r / x_norm;
   }
 
   return x;
@@ -129,10 +142,10 @@ std::vector<double> sample_hypersphere(int k, double r) {
   for (auto& elem : x) {
     sum_sq += elem * elem;
   }
-  
+
 
   for (auto& elem : x) {
-    elem *= r / std::sqrt(sum_sq);   
+    elem *= r / std::sqrt(sum_sq);
   }
 
   return x;
@@ -140,11 +153,11 @@ std::vector<double> sample_hypersphere(int k, double r) {
 
 /**
  * Copies a container and multiplies the value of its elements by a factor.
- * 
+ *
  * @param con a universal reference to an iterable container
  * @param factor a scalar to multiply the elements of the container by
  * @return a copy of con scaled by factor
- */ 
+ */
 template <class T, class V>
 typename std::remove_reference<T>::type multiply(T&& con, V factor) {
   typename std::remove_reference<T>::type res(std::forward<T>(con));
@@ -156,7 +169,7 @@ typename std::remove_reference<T>::type multiply(T&& con, V factor) {
 
 /**
  * Copies a container and squares the values of its elements
- * 
+ *
  * @param con a universal reference to an iterable container
  * @return a copy of con with its elements squared
  */
@@ -172,12 +185,12 @@ typename std::remove_reference<T>::type square(T&& con) {
 /**
  * Retrieves a property from a cpptoml::table as type T. If the property doesn't exist
  * in the table, program execution is stopped.
- * 
+ *
  * @param tbl reference to a shared pointer pointing to a cpptoml::table
  * @param prop a string representing to property to be retrieved from the toml table
  * @return the value of property prop as type T
  */
-template <class T> 
+template <class T>
 T get_from_toml(const std::shared_ptr<cpptoml::table>& tbl, std::string prop) {
   cpptoml::option<T> opt = tbl->get_as<T>(prop);
   assert(opt);
@@ -186,12 +199,12 @@ T get_from_toml(const std::shared_ptr<cpptoml::table>& tbl, std::string prop) {
 
 template <class T>
 bool approx_equal(T lhs, T rhs, double tolerance = 1e-5) {
-  double diff = std::abs(lhs - rhs); 
+  double diff = std::abs(lhs - rhs);
   return diff < tolerance;
 }
 
 template <class Iter>
-bool approx_equal(Iter c1_begin, Iter c1_end, Iter c2_begin, 
+bool approx_equal(Iter c1_begin, Iter c1_end, Iter c2_begin,
     Iter c2_end, double tolerance = 1e-5) {
   if (std::distance(c1_begin, c1_end) != std::distance(c2_begin, c2_end)) {
     return false;
@@ -200,10 +213,9 @@ bool approx_equal(Iter c1_begin, Iter c1_end, Iter c2_begin,
   while (c1_begin != c1_end) {
     if (std::abs(*c1_begin - *c2_begin) >= tolerance) {
       return false;
-    } 
+    }
     ++c1_begin;
     ++c2_begin;
   }
   return true;
 }
-
