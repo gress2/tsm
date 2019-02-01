@@ -75,12 +75,6 @@ class partial_tree_simulator {
         }
         rollout(worklist[i], range_stats);
       }
-
-      std::lock_guard lock_guard(io_mutex_);
-      for (auto& stats : range_stats) {
-        statistics_file_ << stats.mean << "," << stats.sd << "," << stats.k 
-          << "," << stats.d << std::endl;
-      }
     }
 
     std::pair<double, double> mix(node_type* node) {
@@ -140,8 +134,7 @@ class partial_tree_simulator {
         num_unf_nodes_(0),
         max_unf_nodes_(max_unf_nodes),
         rollouts_per_node_(10),
-        statistics_file_("stats.csv"),
-        mixing_data_file_("mixing_data.csv")
+        mixing_data_file_("sg.csv")
     {}
 
     void simulate() {

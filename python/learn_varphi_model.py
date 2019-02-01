@@ -26,7 +26,7 @@ def load_data(path_to_file):
 x_train, y_train = load_data('train_dkv.csv')
 x_test, y_test = load_data('test_dkv.csv')
 
-bs = 128
+bs = 64
 train = torch.utils.data.TensorDataset(x_train, y_train)
 train_loader = torch.utils.data.DataLoader(train, batch_size=bs, shuffle=True)
 
@@ -46,13 +46,14 @@ class VarphiModel(torch.jit.ScriptModule):
         k = ((k - 2) / 51) - .5
         x = torch.stack((d, k), dim=1)
         x = self.dropout(torch.clamp(self.fc1(x), min=0))
+        #x = self.dropout(torch.clamp(self.fc2(x), min=0))
         x = torch.clamp(torch.clamp(self.fc2(x), min=0.01), max=1)
         return x
 
 model = VarphiModel().double()
-optimizer = torch.optim.Adam(model.parameters(), lr=1e-4, weight_decay=.01)
+optimizer = torch.optim.Adam(model.parameters(), lr=5e-5, weight_decay=.01)
 
-for epoch in range(int(100)):
+for epoch in range(int(40)):
     running_loss = 0.0
     for i, data in enumerate(train_loader, 0):
         x, y = data

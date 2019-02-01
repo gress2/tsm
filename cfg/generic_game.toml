@@ -1,6 +1,9 @@
-depth_r = 130
-depth_p = 0.6567
 root_mean = -780.493
 root_sd = 1950
-dispersion_model_path = "../models/dispersion_model.pt"
-nc_model_path = "../models/nc_model.pt"
+root_children = 55
+ppos = 0.72
+lambda_ve_p = 1.3
+lambda_ve_n = 0.3
+omega = -1
+sd_model_path = "../models/sd_model.pt"
+varphi_model_path = "../models/varphi_model.pt"

@@ -107,6 +107,10 @@ mean = 400
 sd = 50
 k = 5 
 
+print(get_orthonormal_basis(10))
+exit()
+
+
 child_means, child_sds = get_mixture(mean, sd, k)
 print(child_means)
 print(child_sds)

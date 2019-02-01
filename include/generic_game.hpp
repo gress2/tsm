@@ -31,8 +31,6 @@ struct config {
   double lambda_ve_p;
   double lambda_ve_n;
   double omega;
-  std::string dispersion_model_path;
-  std::string sd_model_path;
 };
 
 /**
@@ -56,9 +54,6 @@ config get_config_from_toml(std::string toml_file_path) {
   cfg.lambda_ve_p = get_from_toml<decltype(cfg.lambda_ve_p)>(tbl, "lambda_ve_p");
   cfg.lambda_ve_n = get_from_toml<decltype(cfg.lambda_ve_n)>(tbl, "lambda_ve_n");
   cfg.omega = get_from_toml<decltype(cfg.omega)>(tbl, "omega");
-  cfg.dispersion_model_path =
-    get_from_toml<decltype(cfg.dispersion_model_path)>(tbl, "dispersion_model_path");
-  cfg.sd_model_path = get_from_toml<decltype(cfg.sd_model_path)>(tbl, "sd_model_path");
   return cfg;
 }
 
@@ -78,8 +73,8 @@ class game {
     std::vector<double> child_sds_;
     std::vector<move_type> available_moves_;
     double cumulative_reward_;
-    std::shared_ptr<torch::jit::script::Module> dispersion_module_;
     std::shared_ptr<torch::jit::script::Module> sd_module_;
+    std::shared_ptr<torch::jit::script::Module> varphi_module_;
 
     /* Methods */
     int draw_num_children() const {
@@ -128,21 +123,17 @@ class game {
       return num_children_ == 0 ? sample_gaussian(mean_, sd_) : 0;
     }
 
-    std::pair<double, double> get_beta_params() {
-      auto input_tensor = torch::tensor({
-        static_cast<double>(mean_),
-        static_cast<double>(sd_),
-        static_cast<double>(num_children_),
-        static_cast<double>(num_moves_made_)
-      });
+    double get_varphi2() {
+
+      auto input_tensor = torch::ones({2, 2}, torch::kFloat64);
+      input_tensor[0][0] = static_cast<double>(num_moves_made_);
+      input_tensor[0][1] = static_cast<double>(num_children_);
 
       std::vector<torch::jit::IValue> input({input_tensor});
-      at::Tensor output = dispersion_module_->forward(input).toTensor();
-      std::pair<double, double> beta_params(
-        *(output.data<double>()),
-        *(output.data<double>() + 1)
-      );
-      return beta_params;
+      at::Tensor output = varphi_module_->forward(input).toTensor();
+      double varphi2 = *(output.data<double>()) + sample_gaussian(0, .015);
+    
+      return std::min(std::max(varphi2, 0.0), 1.0);
     }
 
     /**
@@ -165,13 +156,15 @@ class game {
         num_children_(draw_num_children()),
         available_moves_(find_available_moves()),
         cumulative_reward_(other.cumulative_reward_ + find_current_reward()),
-        dispersion_module_(other.dispersion_module_),
-        sd_module_(other.sd_module_)
+        sd_module_(other.sd_module_),
+        varphi_module_(other.varphi_module_)
     {
       std::vector<double> p(num_children_, 1. / num_children_);
-      auto beta_params = get_beta_params();
+
+      double varphi2 = get_varphi2();
+
       std::pair<std::vector<double>, std::vector<double>> mixture_dist =
-        sample_finite_mixture(p, mean_, sd_, num_moves_made_, beta_params.first, beta_params.second, sd_module_);
+        sample_finite_mixture(p, mean_, sd_, num_moves_made_, varphi2, sd_module_);
       child_means_ = std::move(mixture_dist.first);
       child_sds_ = std::move(mixture_dist.second);
     }
@@ -182,7 +175,10 @@ class game {
      *
      * @param config a config struct which sets various parameters of the game
      */
-    game(config cfg)
+    game(config cfg, 
+      std::string sd_model_path = "../models/sd_model.pt", 
+      std::string varphi_model_path = "../models/varphi_model.pt"
+    )
       : cfg_(cfg),
         mean_(cfg_.root_mean),
         sd_(cfg_.root_sd),
@@ -192,17 +188,17 @@ class game {
         num_children_(cfg_.root_children),
         available_moves_(find_available_moves()),
         cumulative_reward_(find_current_reward()),
-        dispersion_module_(torch::jit::load(cfg_.dispersion_model_path)),
-        sd_module_(torch::jit::load(cfg_.sd_model_path))
+        sd_module_(torch::jit::load(sd_model_path)),
+        varphi_module_(torch::jit::load(varphi_model_path))
     {
       assert(dispersion_module_ != nullptr && sd_module_ != nullptr);
 
       std::vector<double> p(num_children_, 1. / num_children_);
 
-      auto beta_params = get_beta_params();
+      double varphi2 = get_varphi2();
 
       std::pair<std::vector<double>, std::vector<double>> mixture_dist =
-        sample_finite_mixture(p, mean_, sd_, num_moves_made_, beta_params.first, beta_params.second, sd_module_);
+        sample_finite_mixture(p, mean_, sd_, num_moves_made_, varphi2, sd_module_);
 
       child_means_ = std::move(mixture_dist.first);
       child_sds_ = std::move(mixture_dist.second);

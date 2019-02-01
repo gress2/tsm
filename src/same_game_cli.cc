@@ -1,8 +1,17 @@
 #include <iostream>
+#include "cxxopts.hpp"
 #include "same_game.hpp"
 
-int main() {
-  std::string cfg_toml_path = "../cfg/same_game.toml"; 
+int main(int argc, char** argv) {
+  cxxopts::Options options("same_game_cli", "Allows user to play samegame from the commmand line");
+  options.add_options()
+    ("c,cfg", "Path to game config", cxxopts::value<std::string>()
+      ->default_value("../cfg/same_game.toml"))
+  ;
+
+  auto result = options.parse(argc, argv);
+  std::string cfg_toml_path = result["cfg"].as<std::string>();
+
   same_game::config cfg = same_game::get_config_from_toml(cfg_toml_path);
 
   same_game::game game(cfg);

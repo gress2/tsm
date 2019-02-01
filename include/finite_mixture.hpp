@@ -168,15 +168,29 @@ double reverse_to_varphi2(double sd, const std::vector<double>& child_sds) {
 }
 
 std::pair<std::vector<double>, std::vector<double>> sample_finite_mixture(const std::vector<double>& p,
-    double mean, double sd, int d, double beta_a = 2, double beta_b = 2,
+    double mean, double sd, int d, double varphi2,
     std::shared_ptr<torch::jit::script::Module> sd_module = nullptr) {
   int k = p.size();
   if (k == 1) {
     return std::make_pair(std::vector<double>{mean}, std::vector<double>{sd});
   }
 
-  double varphi2 = get_varphi2(beta_a, beta_b);
+  std::ofstream d_vs_v("dkv.csv", std::ios::app);
+
+  d_vs_v << d << ", " << k << ", " << varphi2 << "\n";
+
   std::vector<double> gamma = get_gamma(p, varphi2);
+
+  double gamma_c1 = 0;
+  for (const auto& elem : gamma) {
+    gamma_c1 += std::sqrt(1/k) * elem;
+  }
+
+  double gamma_c2 = 0;
+  for (const auto& elem : gamma) {
+    gamma_c2 += elem * elem;
+  }
+
   std::vector<double> eta = get_eta(mean, sd, d, p, varphi2, sd_module);
 
   std::vector<double> alpha;

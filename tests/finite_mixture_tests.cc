@@ -74,7 +74,7 @@ TEST(sample_finite_mixture, returns_valid_distribution) {
   double mean_ = 500;
   double sd_ = 100;
 
-  auto mixture = sample_finite_mixture(p, mean_, sd_);
+  auto mixture = sample_finite_mixture(p, mean_, sd_, 10, .1);
   std::vector<double> child_means = mixture.first;
   std::vector<double> child_sds = mixture.second;
   
