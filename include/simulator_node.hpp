@@ -16,7 +16,7 @@ class node {
     double sd_;
   public:
     node(Game&& game)
-      : game_(std::move(game))
+      : game_(std::move(game)), mean_(0), sd_(0)
     {}
     
     void expand() {

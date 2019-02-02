@@ -22,8 +22,8 @@ int main(int argc, char** argv) {
 
   using game = generic_game::game;
 
-  std::ofstream dk_f("dk.sg.csv");
-  std::ofstream td_f("td.sg.csv");
+  std::ofstream dk_f("dk.generic_game.csv");
+  std::ofstream td_f("td.generic_game.csv");
 
   std::string sd_model_path = result["sd_model_path"].as<std::string>();
   std::string varphi_model_path = result["varphi_model_path"].as<std::string>();

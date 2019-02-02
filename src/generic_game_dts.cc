@@ -26,7 +26,7 @@ int main(int argc, char** argv) {
 
   generic_game::game game(cfg, sd_model_path, varphi_model_path);
 
-  simulator::deep_tree_simulator<generic_game::game> sim(game, num_iters, "main.gg.csv");
+  simulator::deep_tree_simulator<generic_game::game> sim(game, num_iters, "main.generic_game.csv");
   sim.simulate();
 
   return 0;

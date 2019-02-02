@@ -66,7 +66,7 @@ class game {
     static board_type collapse(board_type board) {
       int col_sz = board[0].size();
 
-      for (int i = 0; i < board.size(); i++) {
+      for (board_type::size_type i = 0; i < board.size(); i++) {
         int num_removed = 0;
         for (auto it = board[i].begin(); it != board[i].end();) {
           if (*it == 0) {
@@ -129,8 +129,8 @@ class game {
      * @return true if the move is valid, false otherwise
      */
     static bool is_valid_position(const board_type& board, move_type move) noexcept {
-      return move.first >= 0 && move.first < board.size()
-        && move.second >= 0 && move.second < board[0].size();
+      return move.first >= 0 && move.first < static_cast<int>(board.size())
+        && move.second >= 0 && move.second < static_cast<int>(board[0].size());
     }
 
     /**
@@ -212,8 +212,8 @@ class game {
       std::set<move_type> covered;
       std::vector<move_type> moves;
 
-      for (int i = 0; i < board.size(); i++) {
-        for (int j = 0; j < board[i].size(); j++) {
+      for (board_type::size_type i = 0; i < board.size(); i++) {
+        for (board_type::size_type j = 0; j < board[i].size(); j++) {
           move_type pos(i, j);
           if (get_value(board, pos) == 0) {
             break;

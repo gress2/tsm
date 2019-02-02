@@ -64,7 +64,7 @@ std::vector<double> normalize(std::vector<double> vec) {
 
 std::vector<std::vector<double>> get_orthonormal_basis(const std::vector<double>& p) {
   std::vector<std::vector<double>> basis;
-  for (int i = 1; i < p.size(); i++) {
+  for (std::vector<double>::size_type i = 1; i < p.size(); i++) {
     basis.push_back(normalize(get_fs(p, i)));
   }
   return basis;
@@ -89,22 +89,25 @@ std::vector<double> get_gamma(const std::vector<double>& p, double varphi2) {
   if (k == 2) {
     return get_gamma_for_k2(p, varphi2);
   } else {
-    std::vector<std::vector<double>> basis = get_orthonormal_basis(p);
+
+    using nested_vector = std::vector<std::vector<double>>;
+
+    nested_vector basis = get_orthonormal_basis(p);
 
     std::vector<double> v;
     for (int i = 0; i < k - 1; i++) {
       v.push_back(sample_gaussian(0, 1));
     }
 
-    for (int j = 0; j < v.size(); j++) {
+    for (std::vector<double>::size_type j = 0; j < v.size(); j++) {
       for (auto& elem : basis[j]) {
         elem *= v[j];
       }
     }
 
     std::vector<double> x(k, 0);
-    for (int p = 0; p < basis.size(); p++) {
-      for (int q = 0; q < basis[p].size(); q++) {
+    for (nested_vector::size_type p = 0; p < basis.size(); p++) {
+      for (nested_vector::size_type q = 0; q < basis[p].size(); q++) {
         x[q] += basis[p][q];
       }
     }
@@ -174,10 +177,6 @@ std::pair<std::vector<double>, std::vector<double>> sample_finite_mixture(const 
   if (k == 1) {
     return std::make_pair(std::vector<double>{mean}, std::vector<double>{sd});
   }
-
-  std::ofstream d_vs_v("dkv.csv", std::ios::app);
-
-  d_vs_v << d << ", " << k << ", " << varphi2 << "\n";
 
   std::vector<double> gamma = get_gamma(p, varphi2);
 

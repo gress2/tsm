@@ -18,12 +18,17 @@ set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -Wall -g")
 set(CMAKE_CXX_FLAGS_DEBUG "${CMAKE_CXX_FLAGS_DEBUG} -Wall -g -DTSM_DEBUG")
 set(CMAKE_CXX_FLAGS_RELEASE "${CMAKE_CXX_FLAGS_RELEASE} -Wall -Ofast")
 
+option (MakeTests "MakeTests" OFF)
+
 set(LIBS "logger" "random_engine" "gtest_main")
 
 include(CTest)
 
 include_directories("${CMAKE_CURRENT_SOURCE_DIR}/include")
 
-add_subdirectory("./tests")
-add_subdirectory("./src")
 add_subdirectory("./deps/googletest")
+add_subdirectory("./src")
+
+if (MakeTests)
+  add_subdirectory("./tests")
+endif()

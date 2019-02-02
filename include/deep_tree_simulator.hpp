@@ -55,7 +55,7 @@ class deep_tree_simulator {
 
     void rollout(node_type* node, std::vector<state_statistics>& range_stats) {
       std::vector<double> rewards;
-      for (std::size_t i = 0; i < rollouts_per_node_; i++) {
+      for (int i = 0; i < rollouts_per_node_; i++) {
         Game g(node->get_game());
         auto moves = g.get_available_moves();
         while (!moves.empty()) {

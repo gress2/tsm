@@ -23,8 +23,9 @@ int main(int argc, char** argv) {
   same_game::config cfg = same_game::get_config_from_toml(cfg_toml_path);
 
   using game = same_game::game;
-  std::ofstream dk_f("dk.sg.csv");
-  std::ofstream td_f("td.sg.csv");
+  
+  std::ofstream dk_f("dk.same_game.csv");
+  std::ofstream td_f("td.same_game.csv");
 
   game g(cfg);
 
@@ -38,10 +39,10 @@ int main(int argc, char** argv) {
     while (!moves.empty()) {
       int random_idx = std::rand() % moves.size();
       cur = cur.make_move(moves[random_idx]);
-      int d = cur.get_num_moves_made();
-      int k = cur.get_num_available_moves();
-      dk_f << d << ", " << k << "\n";
       moves = cur.get_available_moves();
+      int d = cur.get_num_moves_made();
+      int k = moves.size();
+      dk_f << d << ", " << k << "\n";
     }
     td_f << cur.get_num_moves_made() << "\n"; 
   }
