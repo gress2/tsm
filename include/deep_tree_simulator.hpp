@@ -35,8 +35,7 @@ class deep_tree_simulator {
     int rollouts_per_node_;
     std::size_t num_unf_nodes_;
     std::size_t max_unf_nodes_;
-    std::ofstream statistics_file_;
-    std::ofstream mixing_data_file_;
+    std::ofstream data_file_;
     std::priority_queue<node_type*, std::vector<node_type*>, 
       node_ptr_comparator<node_type>> pri_q_; 
     std::mutex io_mutex_;
@@ -44,13 +43,12 @@ class deep_tree_simulator {
     std::vector<node_type*> worklist_;
   public:
 
-    deep_tree_simulator(Game game, std::size_t max_unf_nodes) 
+    deep_tree_simulator(Game game, std::size_t max_unf_nodes, std::string data_file_path = "/dev/null") 
       : root_(std::move(game)),
         rollouts_per_node_(100),
         num_unf_nodes_(0),
         max_unf_nodes_(max_unf_nodes),
-        statistics_file_("stats.csv"),
-        mixing_data_file_("mixing_data.csv")
+        data_file_(data_file_path)
     {
       pri_q_.push(&root_);
     }
@@ -96,12 +94,6 @@ class deep_tree_simulator {
         }
         rollout(wl[i], range_stats);
       }
-
-      std::lock_guard lock_guard(io_mutex_);
-      for (auto& stats : range_stats) {
-        statistics_file_ << stats.mean << "," << stats.sd << "," << stats.k 
-          << "," << stats.d << std::endl;
-      }
     }
 
     std::pair<double, double> mix(node_type* node) {
@@ -140,16 +132,16 @@ class deep_tree_simulator {
 
       double varphi2 = reverse_to_varphi2(sd, child_sds);
 
-      mixing_data_file_ << mean << ", " << sd << ", " 
+      data_file_ << mean << ", " << sd << ", " 
         << depth << ", " << k << ", " << varphi2 << ", "; 
 
       for (auto it = child_vals.begin(); it != child_vals.end(); ++it) {
-        mixing_data_file_ << "(" << it->first << "," << it->second << ")";
+        data_file_ << "(" << it->first << "," << it->second << ")";
         if (std::next(it) != child_vals.end()) {
-          mixing_data_file_ << ", ";
+          data_file_ << ", ";
         }
       }
-      mixing_data_file_ << std::endl;
+      data_file_ << std::endl;
 
       return std::make_pair(mean, sd);
     }

@@ -22,8 +22,9 @@ int main(int argc, char** argv) {
 
   using game = generic_game::game;
 
-  std::ofstream rw_stats("generic_game_rw_stats");
-  std::ofstream td_stats("generic_game_td");
+  std::ofstream dk_f("dk.sg.csv");
+  std::ofstream td_f("td.sg.csv");
+
   std::string sd_model_path = result["sd_model_path"].as<std::string>();
   std::string varphi_model_path = result["varphi_model_path"].as<std::string>();
 
@@ -40,14 +41,12 @@ int main(int argc, char** argv) {
     while (!moves.empty()) {
       int random_idx = std::rand() % moves.size();
       cur = cur.make_move(moves[random_idx]);
-      double mean = cur.get_mean();
-      double sd = cur.get_sd();
       int d = cur.get_num_moves_made();
       int k = cur.get_child_means().size();
-      rw_stats << mean << ", " << sd << ", " << d << ", " << k << "\n";
+      dk_f << d << ", " << k << "\n";
       moves = cur.get_available_moves();
     }
-    td_stats << cur.get_num_moves_made() << "\n";
+    td_f << cur.get_num_moves_made() << "\n";
   }
 
 }

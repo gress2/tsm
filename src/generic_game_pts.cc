@@ -20,6 +20,7 @@ int main(int argc, char** argv) {
   auto result = options.parse(argc, argv);
 
   std::string cfg_toml_path = result["cfg"].as<std::string>();
+
   int num_iters = result["num_iters"].as<int>();
   std::string sd_model_path = result["sd_model_path"].as<std::string>();
   std::string varphi_model_path = result["varphi_model_path"].as<std::string>();
@@ -28,7 +29,7 @@ int main(int argc, char** argv) {
 
   generic_game::game game(cfg, sd_model_path, varphi_model_path);
 
-  simulator::partial_tree_simulator<generic_game::game> sim(game, num_iters);
+  simulator::partial_tree_simulator<generic_game::game> sim(game, num_iters, "main.gg.csv");
   sim.simulate();
 
   return 0;

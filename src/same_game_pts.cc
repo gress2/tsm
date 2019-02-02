@@ -24,7 +24,7 @@ int main(int argc, char** argv) {
 
   same_game::game game(cfg);
 
-  simulator::partial_tree_simulator<same_game::game> sim(game, num_iters);
+  simulator::partial_tree_simulator<same_game::game> sim(game, num_iters, "main.sg.csv");
   sim.simulate();
 
   return 0;

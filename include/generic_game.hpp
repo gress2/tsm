@@ -23,8 +23,6 @@ namespace generic_game
  */
 struct config {
   int root_children;
-  int depth_r;
-  double depth_p;
   double root_mean;
   double root_sd;
   double ppos;
@@ -46,8 +44,6 @@ config get_config_from_toml(std::string toml_file_path) {
   auto tbl = cpptoml::parse_file(toml_file_path);
   config cfg;
   cfg.root_children = get_from_toml<decltype(cfg.root_children)>(tbl, "root_children");
-  cfg.depth_r = get_from_toml<decltype(cfg.depth_r)>(tbl, "depth_r");
-  cfg.depth_p = get_from_toml<decltype(cfg.depth_p)>(tbl, "depth_p");
   cfg.root_mean = get_from_toml<decltype(cfg.root_mean)>(tbl, "root_mean");
   cfg.root_sd = get_from_toml<decltype(cfg.root_sd)>(tbl, "root_sd");
   cfg.ppos = get_from_toml<decltype(cfg.ppos)>(tbl, "ppos");
@@ -191,7 +187,7 @@ class game {
         sd_module_(torch::jit::load(sd_model_path)),
         varphi_module_(torch::jit::load(varphi_model_path))
     {
-      assert(dispersion_module_ != nullptr && sd_module_ != nullptr);
+      assert(varphi_module_ != nullptr && sd_module_ != nullptr);
 
       std::vector<double> p(num_children_, 1. / num_children_);
 

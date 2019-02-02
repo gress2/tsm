@@ -31,7 +31,7 @@ class partial_tree_simulator {
     std::size_t max_unf_nodes_;
     std::size_t rollouts_per_node_;
     std::ofstream statistics_file_;
-    std::ofstream mixing_data_file_;
+    std::ofstream data_file_;
     std::mutex io_mutex_;
     std::mutex progress_mutex_;
 
@@ -113,28 +113,28 @@ class partial_tree_simulator {
 
       double varphi2 = reverse_to_varphi2(sd, child_sds);
 
-      mixing_data_file_ << mean << ", " << sd << ", " 
+      data_file_ << mean << ", " << sd << ", " 
         << depth << ", " << k << ", " << varphi2 << ", "; 
 
       for (auto it = child_vals.begin(); it != child_vals.end(); ++it) {
-        mixing_data_file_ << "(" << it->first << "," << it->second << ")";
+        data_file_ << "(" << it->first << "," << it->second << ")";
         if (std::next(it) != child_vals.end()) {
-          mixing_data_file_ << ", ";
+          data_file_ << ", ";
         }
       }
-      mixing_data_file_ << std::endl;
+      data_file_ << std::endl;
 
       return std::make_pair(mean, sd);
     }
 
   public:
-    partial_tree_simulator(Game game, std::size_t max_unf_nodes) 
+    partial_tree_simulator(Game game, std::size_t max_unf_nodes, std::string data_file_path = "/dev/null")
       : root_(std::move(game)),
         worklist_({&root_}),
         num_unf_nodes_(0),
         max_unf_nodes_(max_unf_nodes),
         rollouts_per_node_(10),
-        mixing_data_file_("sg.csv")
+        data_file_(data_file_path)
     {}
 
     void simulate() {
