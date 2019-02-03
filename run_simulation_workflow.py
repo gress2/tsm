@@ -1,5 +1,4 @@
 #!/usr/bin/env python3
-
 import argparse
 import sys
 import subprocess
@@ -23,36 +22,45 @@ num_unf_nodes = args.u
 num_walks = args.w
 build_type = 'Debug' if args.d else 'Release'
 cfg = './cfg/{}_game.toml'.format(game)
-sd_model_path = "./models/sd_model.pt"
-varphi_model_path = "./models/varphi_model.pt"
 should_archive = args.a
 
 pts_exec = './build/{}/bin/{}_game_pts'.format(build_type, game)
 rw_exec = './build/{}/bin/{}_game_rw'.format(build_type, game)
 
-pts_args = [pts_exec, '-c', cfg, '-n', str(num_unf_nodes)]
-rw_args = [rw_exec, '-c', cfg, '-n', str(num_walks)]
+pts_args = ['-c', cfg, '-n', str(num_unf_nodes)]
+rw_args = ['-c', cfg, '-n', str(num_walks)]
 
+# if we're dealing with the generic game, we only run random walks
 if game == 'generic':
-    model_path_args = ['-s', sd_model_path, '-v', varphi_model_path]
-    pts_args += model_path_args
-    rw_args += model_path_args
-
-subprocess.call(pts_args)
-subprocess.call(rw_args)
+    rw_args += ['-s', './models/sd_model.pt', '-v', './models/varphi_model.pt']
+    print('Step 1/2: random walk')
+    subprocess.call([rw_exec] + rw_args)
+    print('Step 2/2: moving data to dataframes')
+else:
+    print('Step 1/3: partial tree simulation')
+    subprocess.call([pts_exec] + pts_args)
+    print('Step 2/3: random walk')
+    subprocess.call([rw_exec] + rw_args)
+    print('Step 3/3: moving data to dataframes')
 
 main_cols = ['mean', 'sd', 'd', 'k', 'varphi2', 'gammas', 'etas']
 main_df = pd.DataFrame(columns=main_cols)
 
+ctr = 0
+tmp_df = pd.DataFrame(columns=main_cols)
 with open('main.{}_game.csv'.format(game), 'r') as main_f:
     for line in main_f:
+        if ctr % 1000 == 0:
+            if len(tmp_df.index) > 0:
+                main_df = main_df.append(tmp_df)
+                tmp_df = pd.DataFrame(columns=main_cols)
         split = line.split(',')
         mean = float(split[0])
         sd = float(split[1])
         d = int(split[2])
         k = int(split[3])
         varphi2 = float(split[4])
-        cdists = [ float(elem.replace('(', '').replace(')', '')) for elem in split[5:] ]
+        cdists = [float(elem.replace('(', '').replace(')', '')) for elem in split[5:]]
         means = cdists[0::2]
         sds = cdists[1::2]
         alphas = list(map(lambda x: (x - mean) / sd if sd > 0 else 0, means))
@@ -60,7 +68,10 @@ with open('main.{}_game.csv'.format(game), 'r') as main_f:
         mul_p = lambda x: x * sqrt(1.0 / k)
         gammas = list(map(mul_p, alphas))
         etas = list(map(mul_p, taus))
-        main_df.loc[len(main_df)] = [mean, sd, d, k, varphi2, gammas, etas]
+        tmp_df.loc[len(tmp_df)] = [mean, sd, d, k, varphi2, gammas, etas]
+        ctr += 1
+if len(tmp_df.index) > 0:
+    main_df = main_df.append(tmp_df)
 
 main_df.to_pickle('main.{}_game.pkl'.format(game))
 
@@ -68,6 +79,7 @@ td_cols = ['td', 'freq']
 td_df = pd.DataFrame(columns=td_cols)
 td_freqs = dict()
 
+tmp_df = pd.DataFrame(columns=td_cols)
 with open('td.{}_game.csv'.format(game), 'r') as td_f:
     for line in td_f:
         td = int(line)
@@ -75,20 +87,37 @@ with open('td.{}_game.csv'.format(game), 'r') as td_f:
             td_freqs[td] = 1
         else:
             td_freqs[td] += 1
+    ctr = 0
     for td in td_freqs:
-        td_df.loc[len(td_df)] = [td, td_freqs[td]]
+        if ctr % 1000 == 0:
+            if len(tmp_df.index) > 0:
+                td_df = td_df.append(tmp_df)
+                tmp_df = pd.DataFrame(columns=td_cols)
+        tmp_df.loc[len(tmp_df)] = [td, td_freqs[td]]
+        ctr += 1 
+if len(tmp_df.index) > 0:
+    td_df = td_df.append(tmp_df)
 
 td_df.to_pickle('td.{}_game.pkl'.format(game))
 
 dk_cols = ['d', 'k']
 dk_df = pd.DataFrame(columns=dk_cols)
 
+ctr = 0
+tmp_df = pd.DataFrame(columns=dk_cols)
 with open('dk.{}_game.csv'.format(game), 'r') as dk_f:
     for line in dk_f:
+        if ctr % 1000 == 0:
+            if len(tmp_df.index) > 0:
+                dk_df = dk_df.append(tmp_df)
+                tmp_df = pd.DataFrame(columns=dk_cols)
         split = line.split(',')
         d = int(split[0])
         k = int(split[1])
-        dk_df.loc[len(dk_df)] = [d, k]
+        tmp_df.loc[len(tmp_df)] = [d, k]
+        ctr += 1
+if len(tmp_df.index) > 0:
+    dk_df = dk_df.append(tmp_df)
 
 dk_df.to_pickle('dk.{}_game.pkl'.format(game))
 

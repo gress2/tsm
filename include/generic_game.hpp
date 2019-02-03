@@ -71,6 +71,7 @@ class game {
     double cumulative_reward_;
     std::shared_ptr<torch::jit::script::Module> sd_module_;
     std::shared_ptr<torch::jit::script::Module> varphi_module_;
+    double varphi2_;
 
     /* Methods */
     int draw_num_children() const {
@@ -119,8 +120,7 @@ class game {
       return num_children_ == 0 ? sample_gaussian(mean_, sd_) : 0;
     }
 
-    double get_varphi2() {
-
+    double calc_varphi2() {
       auto input_tensor = torch::ones({2, 2}, torch::kFloat64);
       input_tensor[0][0] = static_cast<double>(num_moves_made_);
       input_tensor[0][1] = static_cast<double>(num_children_);
@@ -153,14 +153,12 @@ class game {
         available_moves_(find_available_moves()),
         cumulative_reward_(other.cumulative_reward_ + find_current_reward()),
         sd_module_(other.sd_module_),
-        varphi_module_(other.varphi_module_)
+        varphi_module_(other.varphi_module_),
+        varphi2_(calc_varphi2())
     {
       std::vector<double> p(num_children_, 1. / num_children_);
-
-      double varphi2 = get_varphi2();
-
       std::pair<std::vector<double>, std::vector<double>> mixture_dist =
-        sample_finite_mixture(p, mean_, sd_, num_moves_made_, varphi2, sd_module_);
+        sample_finite_mixture(p, mean_, sd_, num_moves_made_, varphi2_, sd_module_);
       child_means_ = std::move(mixture_dist.first);
       child_sds_ = std::move(mixture_dist.second);
     }
@@ -185,16 +183,15 @@ class game {
         available_moves_(find_available_moves()),
         cumulative_reward_(find_current_reward()),
         sd_module_(torch::jit::load(sd_model_path)),
-        varphi_module_(torch::jit::load(varphi_model_path))
+        varphi_module_(torch::jit::load(varphi_model_path)),
+        varphi2_(calc_varphi2())
     {
       assert(varphi_module_ != nullptr && sd_module_ != nullptr);
 
       std::vector<double> p(num_children_, 1. / num_children_);
 
-      double varphi2 = get_varphi2();
-
       std::pair<std::vector<double>, std::vector<double>> mixture_dist =
-        sample_finite_mixture(p, mean_, sd_, num_moves_made_, varphi2, sd_module_);
+        sample_finite_mixture(p, mean_, sd_, num_moves_made_, varphi2_, sd_module_);
 
       child_means_ = std::move(mixture_dist.first);
       child_sds_ = std::move(mixture_dist.second);
@@ -267,6 +264,10 @@ class game {
      */
     double get_cumulative_reward() const noexcept {
       return cumulative_reward_;
+    }
+
+    double get_varphi2() const noexcept {
+      return varphi2_;
     }
 
     /**
