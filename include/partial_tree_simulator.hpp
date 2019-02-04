@@ -6,7 +6,6 @@
 #include <utility>
 #include <vector>
 
-#include "finite_mixture.hpp"
 #include "simulator_node.hpp"
 #include "util.hpp"
 

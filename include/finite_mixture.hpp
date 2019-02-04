@@ -155,21 +155,6 @@ std::vector<double> get_eta(
   return x;
 }
 
-double reverse_to_varphi2(double sd, const std::vector<double>& child_sds) {
-  double sum_sq = 0;
-
-  for (auto& elem : child_sds) {
-    sum_sq += std::pow(elem, 2);
-  }
-
-  if (sum_sq < 1e-5) {
-    return 1;
-  }
-
-  double varphi2 = 1 - (sum_sq / (static_cast<double>(child_sds.size()) * std::pow(sd, 2)));
-  return varphi2;
-}
-
 std::pair<std::vector<double>, std::vector<double>> sample_finite_mixture(const std::vector<double>& p,
     double mean, double sd, int d, double varphi2,
     std::shared_ptr<torch::jit::script::Module> sd_module = nullptr) {

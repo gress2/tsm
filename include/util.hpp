@@ -219,3 +219,18 @@ bool approx_equal(Iter c1_begin, Iter c1_end, Iter c2_begin,
   }
   return true;
 }
+
+double reverse_to_varphi2(double sd, const std::vector<double>& child_sds) {
+  double sum_sq = 0;
+
+  for (auto& elem : child_sds) {
+    sum_sq += std::pow(elem, 2);
+  }
+
+  if (sum_sq < 1e-5) {
+    return 1;
+  }
+
+  double varphi2 = 1 - (sum_sq / (static_cast<double>(child_sds.size()) * std::pow(sd, 2)));
+  return varphi2;
+}

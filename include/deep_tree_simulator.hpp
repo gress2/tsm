@@ -5,7 +5,6 @@
 #include <queue>
 #include <thread>
 
-#include "finite_mixture.hpp"
 #include "simulator_node.hpp"
 #include "util.hpp"
 
