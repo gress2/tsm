@@ -42,21 +42,23 @@ plt.scatter(k, v)
 mean = main_df.loc[:, ['mean']].values
 plt.subplot(3, 3, 4)
 plt.xlabel('mean')
-plt.hist(mean, bins=50)
+plt.hist(mean, bins=50, density=True)
 
 sd = main_df.loc[:, ['sd']].values
 plt.subplot(3, 3, 5)
 plt.xlabel('sd')
-plt.hist(sd, bins=50)
+plt.hist(sd, bins=50, density=True)
 
 k = dk_df.loc[:, ['k']].values
 plt.subplot(3, 3, 6)
 plt.xlabel('k')
-plt.hist(k, bins=50)
+plt.hist(k, bins=50, density=True)
 
-td = td_df.loc[:, ['td']].values
+tdf = td_df.loc[:, ['td', 'freq']].values
+td = tdf[:, 0]
+freq = tdf[:, 1]
+dequantized = td.repeat(freq.astype(int))
+dequantized = dequantized.reshape(len(dequantized), 1)
 plt.subplot(3, 3, 7)
-plt.xlabel('td')
-plt.hist(td, bins=50)
-
+plt.hist(dequantized, bins=50, density=True)
 plt.show()
