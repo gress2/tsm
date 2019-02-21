@@ -14,6 +14,7 @@ parser.add_argument('-u', type=int, default=10, help='Max number of unfinished n
 parser.add_argument('-w', type=int, default=10, help='Number of random walks to be done')
 parser.add_argument('-d', action='store_true', help='Use the debug built executables')
 parser.add_argument('-a', action='store_true', help='Create an archive of these files')
+parser.add_argument('-deep', action='store_true', help='Run the deep tree simulator rather than the partial tree simulator')
 
 args = parser.parse_args()
 
@@ -24,10 +25,12 @@ build_type = 'Debug' if args.d else 'Release'
 cfg = './cfg/{}_game.toml'.format(game)
 should_archive = args.a
 
-pts_exec = './build/{}/bin/{}_game_pts'.format(build_type, game)
+simulator_exec = 'dts' if args.deep else 'pts'
+
+sim_exec = './build/{}/bin/{}_game_{}'.format(build_type, game, simulator_exec)
 rw_exec = './build/{}/bin/{}_game_rw'.format(build_type, game)
 
-pts_args = ['-c', cfg, '-n', str(num_unf_nodes)]
+sim_args = ['-c', cfg, '-n', str(num_unf_nodes)]
 rw_args = ['-c', cfg, '-n', str(num_walks)]
 
 # if we're dealing with the generic game, we only run random walks
@@ -37,8 +40,8 @@ if game == 'generic':
     subprocess.call([rw_exec] + rw_args)
     print('Step 2/2: moving data to dataframes')
 else:
-    print('Step 1/3: partial tree simulation')
-    subprocess.call([pts_exec] + pts_args)
+    print('Step 1/3: tree simulation')
+    subprocess.call([sim_exec] + sim_args)
     print('Step 2/3: random walk')
     subprocess.call([rw_exec] + rw_args)
     print('Step 3/3: moving data to dataframes')

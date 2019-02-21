@@ -1,7 +1,9 @@
 #!/usr/bin/env python3
 import argparse
 import matplotlib.pyplot as plt
+import matplotlib.cm as cm
 import pandas as pd
+import seaborn as sns
 
 parser = argparse.ArgumentParser(description='Produce visualizations of simulation data')
 parser.add_argument('game', type=str, help='The game with which we wish to produce visualizations from')
@@ -14,51 +16,29 @@ main_df = pd.read_pickle('main.{}_game.pkl'.format(game))
 td_df = pd.read_pickle('td.{}_game.pkl'.format(game))
 dk_df = pd.read_pickle('dk.{}_game.pkl'.format(game))
 
-# scatter plots
-dk = dk_df.loc[:, ['d', 'k']].values
-d = dk[:, 0]
-k = dk[:, 1]
-plt.subplot(3, 3, 1)
-plt.xlabel('d')
-plt.ylabel('k')
-plt.scatter(d, k)
+sns.set(style='whitegrid')
+fig, axs = plt.subplots(ncols=3, nrows=3)
 
-dv = main_df.loc[:, ['d', 'varphi2']].values
-d = dv[:, 0]
-v = dv[:, 1]
-plt.subplot(3, 3, 2)
-plt.xlabel('d')
-plt.ylabel('v')
-plt.scatter(d, v)
+sns.scatterplot(x='d', y='k', marker='.', data=dk_df.astype(float), ax=axs[0][0])
 
-kv = main_df.loc[:, ['k', 'varphi2']].values
-k = kv[:, 0]
-v = kv[:, 1]
-plt.subplot(3, 3, 3)
-plt.xlabel('k')
-plt.ylabel('v')
-plt.scatter(k, v)
+dv_df = main_df[['d', 'varphi2']].astype(float)
+sns.scatterplot(x='d', y='varphi2', marker='.', data=dv_df, ax=axs[0][1])
 
-mean = main_df.loc[:, ['mean']].values
-plt.subplot(3, 3, 4)
-plt.xlabel('mean')
-plt.hist(mean, bins=50, density=True)
+kv_df = main_df[['k', 'varphi2']].astype(float)
+sns.scatterplot(x='k', y='varphi2', marker='.', data=kv_df, ax=axs[0][2])
 
-sd = main_df.loc[:, ['sd']].values
-plt.subplot(3, 3, 5)
-plt.xlabel('sd')
-plt.hist(sd, bins=50, density=True)
+mean_df = main_df[['mean']]
+sns.distplot(mean_df, axlabel='mean', ax=axs[1][0])
 
-k = dk_df.loc[:, ['k']].values
-plt.subplot(3, 3, 6)
-plt.xlabel('k')
-plt.hist(k, bins=50, density=True)
+sd_df = main_df[['sd']]
+sns.distplot(sd_df, axlabel='standard deviation', ax=axs[1][1])
 
-tdf = td_df.loc[:, ['td', 'freq']].values
-td = tdf[:, 0]
-freq = tdf[:, 1]
-dequantized = td.repeat(freq.astype(int))
-dequantized = dequantized.reshape(len(dequantized), 1)
-plt.subplot(3, 3, 7)
-plt.hist(dequantized, bins=50, density=True)
+k_df = dk_df[['k']].astype(float)
+print(k_df.max() - k_df.min())
+sns.distplot(k_df, axlabel='k', bins=int(k_df.max() - k_df.min()), ax=axs[1][2])
+
+td_df = td_df[['td']].astype(float)
+sns.distplot(td_df, bins=int(td_df.max() - td_df.min()), axlabel='terminal depth', ax=axs[2][0])
+
+plt.subplots_adjust(hspace=.30,left=.05,bottom=.05,right=.95,top=.95)
 plt.show()

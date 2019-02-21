@@ -94,10 +94,7 @@ std::vector<double> get_gamma(const std::vector<double>& p, double varphi2) {
 
     nested_vector basis = get_orthonormal_basis(p);
 
-    std::vector<double> v;
-    for (int i = 0; i < k - 1; i++) {
-      v.push_back(sample_gaussian(0, 1));
-    }
+    std::vector<double> v = sample_beta(2, 5, k - 1);
 
     for (std::vector<double>::size_type j = 0; j < v.size(); j++) {
       for (auto& elem : basis[j]) {
@@ -111,7 +108,6 @@ std::vector<double> get_gamma(const std::vector<double>& p, double varphi2) {
         x[q] += basis[p][q];
       }
     }
-
     return sample_hypersphere(k, std::sqrt(varphi2), x);
   }
 }
@@ -141,6 +137,7 @@ std::vector<double> get_eta(
   at::Tensor output = sd_module->forward(input).toTensor();
 
   double epsilon = *(output.data<double>());
+  epsilon = 50;
   std::vector<double> x = sample_uniform_dirichlet(k, epsilon);
   double sum_sq = 0;
   for (auto& elem : x) {

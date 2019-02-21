@@ -4,6 +4,7 @@
 #include <vector>
 #include <random>
 
+#include "beta_distribution.hpp"
 #include "cpptoml.hpp"
 #include "random_engine.hpp"
 
@@ -34,6 +35,17 @@ void print(std::vector<std::pair<T, V>>& pair_vec) {
     }
   }
   std::cout << "]" << std::endl;
+}
+
+std::vector<double> sample_uniform(double lower, double upper, int n) {
+  std::uniform_real_distribution<double> dist(lower, upper);
+
+  std::vector<double> samples;
+  for (int i = 0; i < n; i++) {
+    samples.push_back(dist(random_engine::generator));
+  }
+
+  return samples;
 }
 
 /**
@@ -76,6 +88,15 @@ std::vector<double> sample_uniform_dirichlet(int k, double epsilon) {
   double sum = std::accumulate(x.begin(), x.end(), 0.0);
   for (auto& elem : x) {
     elem /= sum;
+  }
+  return x;
+}
+
+std::vector<double> sample_beta(double alpha, double beta, int n) {
+  sftrabbit::beta_distribution<double> dist(alpha, beta);
+  std::vector<double> x;
+  for (int i = 0; i < n; i++) {
+    x.push_back(dist(random_engine::generator));
   }
   return x;
 }
