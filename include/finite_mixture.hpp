@@ -125,7 +125,7 @@ std::vector<double> get_eta(
   const double mean, const double sd, int d, const std::vector<double>& p,
   double varphi2, std::shared_ptr<torch::jit::script::Module> sd_module = nullptr) {
   int k = p.size();
-
+/*
   auto input_tensor = torch::ones({2, 5}, torch::kFloat64);
   input_tensor[0][0] = mean;
   input_tensor[0][1] = sd;
@@ -137,7 +137,8 @@ std::vector<double> get_eta(
   at::Tensor output = sd_module->forward(input).toTensor();
 
   double epsilon = *(output.data<double>());
-  epsilon = 50;
+*/
+  double epsilon = 50;
   std::vector<double> x = sample_uniform_dirichlet(k, epsilon);
   double sum_sq = 0;
   for (auto& elem : x) {
