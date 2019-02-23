@@ -7,10 +7,12 @@ import seaborn as sns
 
 parser = argparse.ArgumentParser(description='Produce visualizations of simulation data')
 parser.add_argument('game', type=str, help='The game with which we wish to produce visualizations from')
+parser.add_argument('-o', type=str, default='', help='The location of the image to save')
 
 args = parser.parse_args()
 
 game = args.game
+output = args.o
 
 main_df = pd.read_pickle('main.{}_game.pkl'.format(game))
 td_df = pd.read_pickle('td.{}_game.pkl'.format(game))
@@ -41,4 +43,8 @@ td_df = td_df[['td']].astype(float)
 sns.distplot(td_df, bins=int(td_df.max() - td_df.min()), axlabel='terminal depth', ax=axs[2][0])
 
 plt.subplots_adjust(hspace=.30,left=.05,bottom=.05,right=.95,top=.95)
-plt.show()
+
+if output != '': 
+    plt.savefig(output, dpi=180)
+else:
+    plt.show()
