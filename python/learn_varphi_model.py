@@ -48,9 +48,9 @@ train_loader = torch.utils.data.DataLoader(train, batch_size=batch_size, shuffle
 class VarphiModel(torch.jit.ScriptModule):
     def __init__(self):
         super(VarphiModel, self).__init__()
-        self.fc1 = torch.nn.Linear(2, 4)
-        self.fc2 = torch.nn.Linear(4, 4)
-        self.fc3 = torch.nn.Linear(4, 1)
+        self.fc1 = torch.nn.Linear(2, 2)
+        self.fc2 = torch.nn.Linear(2, 2)
+        self.fc3 = torch.nn.Linear(2, 1)
         self.dropout = torch.nn.Dropout(p=.2)
 
     @torch.jit.script_method
@@ -68,6 +68,8 @@ class VarphiModel(torch.jit.ScriptModule):
 model = VarphiModel().double()
 optimizer = torch.optim.Adam(model.parameters(), lr=learning_rate, weight_decay=weight_decay)
 
+reporting_freq = 200
+
 for epoch in range(epochs):
     running_loss = 0.0
     for i, data in enumerate(train_loader, 0):
@@ -83,8 +85,9 @@ for epoch in range(epochs):
         optimizer.step()
 
         running_loss += loss
-        if i % 50 == 49:
-            print('[%d, %5d] avg_loss: %.3f' % (epoch + 1, i + 1, running_loss / 50))
+
+        if i % reporting_freq == reporting_freq - 1:
+            print('[%d, %5d] avg_loss: %.3f' % (epoch + 1, i + 1, running_loss / reporting_freq))
             running_loss = 0.0
 
 test = torch.utils.data.TensorDataset(x_test, y_test)
@@ -110,4 +113,5 @@ for i, data in enumerate(test_loader, 0):
 avg_test_loss = test_loss / float(ctr)
 print(avg_test_loss)
 
+model.save('varphi_model.pt')
 model.save('pts/varphi_{}_l{}_w{}_b{}_e{}.pt'.format(arch, learning_rate, weight_decay, batch_size, epochs))

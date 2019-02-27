@@ -23,7 +23,7 @@ int main(int argc, char** argv) {
   using game = generic_game::game;
 
   std::ofstream main_f("main.generic_game.csv");
-  std::ofstream dk_f("dk.generic_game.csv");
+  std::ofstream dkds_f("dkds.generic_game.csv");
   std::ofstream td_f("td.generic_game.csv");
 
   std::string sd_model_path = result["sd_model_path"].as<std::string>();
@@ -39,12 +39,15 @@ int main(int argc, char** argv) {
 
     game cur(g);
     auto moves = cur.get_available_moves();
+    int prev_k = moves.size();
     while (!moves.empty()) {
       double mean = cur.get_mean();
       double sd = cur.get_sd();
       double varphi2 = cur.get_varphi2();
       int d = cur.get_num_moves_made();
       auto k = moves.size();
+      int delta = prev_k - k;
+      prev_k = k;
       auto child_means = cur.get_child_means();
       auto child_sds = cur.get_child_sds();
       main_f << mean << ", " << sd << ", " << d << ", " << k << ", " << varphi2 << ", ";
@@ -55,7 +58,15 @@ int main(int argc, char** argv) {
         }
       }
       main_f << '\n';
-      dk_f << d << ", " << k << '\n';
+
+      int s = 0;
+      if (delta > 0) {
+        s = 1;
+      } else if (delta < 0) {
+        s = -1;
+      }
+
+      dkds_f << d << ", " << k << ", " << delta << ", " << s << '\n';
 
       int random_idx = std::rand() % moves.size();
       cur = cur.make_move(moves[random_idx]);

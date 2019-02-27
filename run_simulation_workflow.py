@@ -41,11 +41,11 @@ if game == 'generic':
     print('Step 2/2: moving data to dataframes')
 else:
     print('Step 1/3: tree simulation')
-    subprocess.call([sim_exec] + sim_args)
+    # subprocess.call([sim_exec] + sim_args)
     print('Step 2/3: random walk')
     subprocess.call([rw_exec] + rw_args)
     print('Step 3/3: moving data to dataframes')
-
+'''
 main_cols = ['mean', 'sd', 'd', 'k', 'varphi2', 'gammas', 'etas']
 main_df = pd.DataFrame(columns=main_cols)
 
@@ -77,7 +77,7 @@ if len(tmp_df.index) > 0:
     main_df = main_df.append(tmp_df)
 
 main_df.to_pickle('main.{}_game.pkl'.format(game))
-
+'''
 td_cols = ['td', 'freq']
 td_df = pd.DataFrame(columns=td_cols)
 td_freqs = dict()
@@ -103,26 +103,27 @@ if len(tmp_df.index) > 0:
 
 td_df.to_pickle('td.{}_game.pkl'.format(game))
 
-dk_cols = ['d', 'k']
-dk_df = pd.DataFrame(columns=dk_cols)
+dkd_cols = ['d', 'k', 'delta']
+dkd_df = pd.DataFrame(columns=dkd_cols)
 
 ctr = 0
-tmp_df = pd.DataFrame(columns=dk_cols)
-with open('dk.{}_game.csv'.format(game), 'r') as dk_f:
-    for line in dk_f:
+tmp_df = pd.DataFrame(columns=dkd_cols)
+with open('dkd.{}_game.csv'.format(game), 'r') as dkd_f:
+    for line in dkd_f:
         if ctr % 1000 == 0:
             if len(tmp_df.index) > 0:
-                dk_df = dk_df.append(tmp_df)
-                tmp_df = pd.DataFrame(columns=dk_cols)
+                dkd_df = dkd_df.append(tmp_df)
+                tmp_df = pd.DataFrame(columns=dkd_cols)
         split = line.split(',')
         d = int(split[0])
         k = int(split[1])
-        tmp_df.loc[len(tmp_df)] = [d, k]
+        delta = int(split[2])
+        tmp_df.loc[len(tmp_df)] = [d, k, delta]
         ctr += 1
 if len(tmp_df.index) > 0:
-    dk_df = dk_df.append(tmp_df)
+    dkd_df = dkd_df.append(tmp_df)
 
-dk_df.to_pickle('dk.{}_game.pkl'.format(game))
+dkd_df.to_pickle('dkd.{}_game.pkl'.format(game))
 
 if should_archive:
     if not path.exists('archives'):

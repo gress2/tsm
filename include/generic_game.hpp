@@ -127,8 +127,10 @@ class game {
 
       std::vector<torch::jit::IValue> input({input_tensor});
       at::Tensor output = varphi_module_->forward(input).toTensor();
-      double varphi2 = *(output.data<double>()) + sample_gaussian(0, .015);
-    
+
+      double mean =  *(output.data<double>());
+      double sd = *(output.data<double>() + 1);
+      double varphi2 = sample_gaussian(mean, sd);
       return std::min(std::max(varphi2, 0.0), 1.0);
     }
 
