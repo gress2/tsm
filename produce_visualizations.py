@@ -16,12 +16,12 @@ output = args.o
 
 main_df = pd.read_pickle('main.{}_game.pkl'.format(game))
 td_df = pd.read_pickle('td.{}_game.pkl'.format(game))
-dk_df = pd.read_pickle('dk.{}_game.pkl'.format(game))
+dkd_df = pd.read_pickle('dkd.{}_game.pkl'.format(game))
 
 sns.set(style='whitegrid')
 fig, axs = plt.subplots(ncols=3, nrows=3)
 
-sns.scatterplot(x='d', y='k', marker='.', data=dk_df.astype(float), ax=axs[0][0])
+sns.scatterplot(x='d', y='k', marker='.', data=dkd_df.astype(float), ax=axs[0][0])
 
 dv_df = main_df[['d', 'varphi2']].astype(float)
 sns.scatterplot(x='d', y='varphi2', marker='.', data=dv_df, ax=axs[0][1])
@@ -35,7 +35,7 @@ sns.distplot(mean_df, axlabel='mean', ax=axs[1][0])
 sd_df = main_df[['sd']]
 sns.distplot(sd_df, axlabel='standard deviation', ax=axs[1][1])
 
-k_df = dk_df[['k']].astype(float)
+k_df = dkd_df[['k']].astype(float)
 print(k_df.max() - k_df.min())
 sns.distplot(k_df, axlabel='k', bins=int(k_df.max() - k_df.min()), ax=axs[1][2])
 

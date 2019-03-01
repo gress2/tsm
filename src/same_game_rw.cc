@@ -41,7 +41,7 @@ int main(int argc, char** argv) {
       cur = cur.make_move(moves[random_idx]);
       moves = cur.get_available_moves();
       int k = moves.size();
-      int delta = prev_k - k;
+      int delta = k - prev_k;
       prev_k = k;
       int d = cur.get_num_moves_made();
       dkd_f << d << ", " << k << ", " << delta << "\n";

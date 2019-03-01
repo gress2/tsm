@@ -25,10 +25,6 @@ struct config {
   int root_children;
   double root_mean;
   double root_sd;
-  double ppos;
-  double lambda_ve_p;
-  double lambda_ve_n;
-  double omega;
 };
 
 /**
@@ -46,10 +42,6 @@ config get_config_from_toml(std::string toml_file_path) {
   cfg.root_children = get_from_toml<decltype(cfg.root_children)>(tbl, "root_children");
   cfg.root_mean = get_from_toml<decltype(cfg.root_mean)>(tbl, "root_mean");
   cfg.root_sd = get_from_toml<decltype(cfg.root_sd)>(tbl, "root_sd");
-  cfg.ppos = get_from_toml<decltype(cfg.ppos)>(tbl, "ppos");
-  cfg.lambda_ve_p = get_from_toml<decltype(cfg.lambda_ve_p)>(tbl, "lambda_ve_p");
-  cfg.lambda_ve_n = get_from_toml<decltype(cfg.lambda_ve_n)>(tbl, "lambda_ve_n");
-  cfg.omega = get_from_toml<decltype(cfg.omega)>(tbl, "omega");
   return cfg;
 }
 
@@ -64,6 +56,7 @@ class game {
     int success_count_;
     int num_moves_made_;
     int num_siblings_;
+    std::shared_ptr<torch::jit::script::Module> delta_module_;
     int num_children_;
     std::vector<double> child_means_;
     std::vector<double> child_sds_;
@@ -75,24 +68,30 @@ class game {
 
     /* Methods */
     int draw_num_children() const {
-      std::bernoulli_distribution ber_dist(cfg_.ppos);
+      auto input_tensor = torch::ones({2, 2}, torch::kFloat64);
+      input_tensor[0][0] = static_cast<double>(num_moves_made_);
+      input_tensor[0][1] = static_cast<double>(num_children_);
+
+      std::vector<torch::jit::IValue> input({input_tensor});
+      at::Tensor output = delta_module_->forward(input).toTensor();
+
+      auto output_it = output.data<double>();
+      double lambda_p = *output_it;
+      double lambda_n = *(output_it + 1);
+      double p = *(output_it + 2);
+      
+      std::bernoulli_distribution ber_dist(p);
       int pi = ber_dist(random_engine::generator);
-      int phi = pi ? 1 : -1;
-
-      int vareps = 0;
-
-      if (phi == 1) {
-        std::poisson_distribution<int> pois_dist(cfg_.lambda_ve_p);
-        vareps = pois_dist(random_engine::generator);
+      int delta;
+      if (pi == 0) {
+        std::poisson_distribution<int> pois_dist(lambda_n);
+        delta = -1 * pois_dist(random_engine::generator);
       } else {
-        std::poisson_distribution<int> pois_dist(cfg_.lambda_ve_n);
-        vareps = pois_dist(random_engine::generator);
+        std::poisson_distribution<int> pois_dist(lambda_p);
+        delta = pois_dist(random_engine::generator);
       }
 
-      int delta = phi * vareps + cfg_.omega;
-
-      int k = num_siblings_ + delta;
-      return std::max(0, k);
+      return std::max(0, num_siblings_ + 1 + delta);
     }
 
     /**
@@ -151,6 +150,7 @@ class game {
         success_count_(other.success_count_),
         num_moves_made_(other.num_moves_made_ + 1),
         num_siblings_(other.num_children_ - 1),
+        delta_module_(other.delta_module_),
         num_children_(draw_num_children()),
         available_moves_(find_available_moves()),
         cumulative_reward_(other.cumulative_reward_ + find_current_reward()),
@@ -173,7 +173,8 @@ class game {
      */
     game(config cfg, 
       std::string sd_model_path = "../models/sd_model.pt", 
-      std::string varphi_model_path = "../models/varphi_model.pt"
+      std::string varphi_model_path = "../models/varphi_model.pt",
+      std::string delta_model_path = "../models/delta_model.pt"
     )
       : cfg_(cfg),
         mean_(cfg_.root_mean),
@@ -181,6 +182,7 @@ class game {
         success_count_(0),
         num_moves_made_(0),
         num_siblings_(0),
+        delta_module_(torch::jit::load(delta_model_path)),
         num_children_(cfg_.root_children),
         available_moves_(find_available_moves()),
         cumulative_reward_(find_current_reward()),

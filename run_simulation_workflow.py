@@ -35,7 +35,7 @@ rw_args = ['-c', cfg, '-n', str(num_walks)]
 
 # if we're dealing with the generic game, we only run random walks
 if game == 'generic':
-    rw_args += ['-s', './models/sd_model.pt', '-v', './models/varphi_model.pt']
+    rw_args += ['-s', './models/sd_model.pt', '-v', './models/varphi_model.pt', '-d', './models/delta_model.pt']
     print('Step 1/2: random walk')
     subprocess.call([rw_exec] + rw_args)
     print('Step 2/2: moving data to dataframes')

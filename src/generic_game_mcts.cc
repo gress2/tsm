@@ -13,6 +13,7 @@ int main(int argc, char** argv) {
     ("n,num_iters", "Number of iterations to perform", cxxopts::value<int>()->default_value("1000"))
     ("s,sd_model_path", "Path to pytorch saved SD model", cxxopts::value<std::string>()->default_value("../models/sd_model.pt"))
     ("v,varphi_model_path", "Path to pytorch saved varphi model", cxxopts::value<std::string>()->default_value("../models/varphi_model.pt"))
+    ("d,delta_model_path", "Path to pytorch saved delta model", cxxopts::value<std::string>()->default_value("../models/delta_model.pt"))
   ;
 
   auto result = options.parse(argc, argv);
@@ -21,10 +22,11 @@ int main(int argc, char** argv) {
   int num_iters = result["num_iters"].as<int>();
   std::string sd_model_path = result["sd_model_path"].as<std::string>();
   std::string varphi_model_path = result["varphi_model_path"].as<std::string>();
+  std::string delta_model_path = result["delta_model_path"].as<std::string>();
 
   generic_game::config cfg = generic_game::get_config_from_toml(cfg_toml_path);
 
-  generic_game::game game(cfg, sd_model_path, varphi_model_path);
+  generic_game::game game(cfg, sd_model_path, varphi_model_path, delta_model_path);
 
   mcts::node<generic_game::game> node(game);
   mcts::uct uct(node, num_iters); 
