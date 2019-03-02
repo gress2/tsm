@@ -1,12 +1,30 @@
 #pragma once
 
 #include <iostream>
+#include <iterator>
 #include <vector>
 #include <random>
+#include <sstream>
 
 #include "beta_distribution.hpp"
 #include "cpptoml.hpp"
 #include "random_engine.hpp"
+
+
+template<typename Out>
+void split(const std::string &s, char delim, Out result) {
+    std::stringstream ss(s);
+    std::string item;
+    while (std::getline(ss, item, delim)) {
+        *(result++) = item;
+    }
+}
+
+std::vector<std::string> split(const std::string &s, char delim) {
+    std::vector<std::string> elems;
+    split(s, delim, std::back_inserter(elems));
+    return elems;
+}
 
 /**
  * Writes the values of an iterable container to stdout
@@ -216,6 +234,12 @@ T get_from_toml(const std::shared_ptr<cpptoml::table>& tbl, std::string prop) {
   cpptoml::option<T> opt = tbl->get_as<T>(prop);
   assert(opt);
   return *opt;
+}
+
+template <class T>
+bool is_in_toml(const std::shared_ptr<cpptoml::table>& tbl, std::string prop) {
+  cpptoml::option<T> opt = tbl->get_as<T>(prop);
+  return static_cast<bool>(opt);
 }
 
 template <class T>

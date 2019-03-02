@@ -28,6 +28,8 @@ int main(int argc, char** argv) {
 
   game g(cfg);
 
+  g.print();
+
   for (int i = 0; i < num_walks; i++) {
     if (i % 1000 == 0) {
       std::cout << "[" << i << "/" << num_walks << "]" << "\n";

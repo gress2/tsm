@@ -3,3 +3,7 @@ archives/
 *.csv
 *.pkl
 **/.ipynb_checkpoints*
+**/*.swo
+**/*.swp
+python/*.pt
+

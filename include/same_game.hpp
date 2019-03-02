@@ -14,6 +14,7 @@ namespace same_game
 struct config {
   int width;
   int height;
+  std::string board_layout_file;
 };
 
 /**
@@ -27,6 +28,12 @@ config get_config_from_toml(std::string toml_file_path) {
   config cfg;
   cfg.width = get_from_toml<decltype(cfg.width)>(tbl, "width");
   cfg.height = get_from_toml<decltype(cfg.height)>(tbl, "height");
+  if (is_in_toml<std::string>(tbl, "board_layout_file")) {
+    cfg.board_layout_file = get_from_toml<decltype(cfg.board_layout_file)>(tbl, "board_layout_file");
+  } else {
+    cfg.board_layout_file = "";
+  }
+
   return cfg;
 }
 
@@ -290,6 +297,7 @@ class game {
         num_moves_made_(0),
         cumulative_reward_(0)
     {
+
       for (int i = 0; i < cfg_.width; i++) {
         std::vector<short> col;
         for (int j = 0; j < cfg_.height; j++) {
@@ -297,6 +305,19 @@ class game {
           col.push_back(space_value);
         }
         board_.push_back(col);
+      }
+
+      if (cfg.board_layout_file != "") {
+        std::ifstream layout(cfg.board_layout_file);
+        int j = cfg_.height - 1;
+        for (std::string line; getline(layout, line);) {
+          std::vector<std::string> elems = split(line, ' ');
+          for (int i = 0; i < elems.size(); i++) {
+            short value = static_cast<short>(elems[i][0] - 48);
+            board_[i][j] = value; 
+          }
+          j--;
+        }
       }
 
       available_moves_ = find_available_moves(board_);

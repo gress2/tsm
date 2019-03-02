@@ -27,10 +27,13 @@ class DeltaModel(torch.jit.ScriptModule):
         super(DeltaModel, self).__init__()
         self.fc1 = torch.nn.Linear(2, 8)
         self.fc2 = torch.nn.Linear(8, 8)
-        self.fc3 = torch.nn.Linear(8, 3)
-        self.dropout = torch.nn.Dropout(p=.2)
+        self.fc3 = torch.nn.Linear(8, 8)
+        self.fc4 = torch.nn.Linear(8, 8)
+        self.fc5 = torch.nn.Linear(8, 3)
         self.bn1 = torch.nn.BatchNorm1d(8)
         self.bn2 = torch.nn.BatchNorm1d(8)
+        self.bn3 = torch.nn.BatchNorm1d(8)
+        self.bn4 = torch.nn.BatchNorm1d(8)
 
     @torch.jit.script_method
     def forward(self, x):
@@ -39,19 +42,21 @@ class DeltaModel(torch.jit.ScriptModule):
         x = torch.stack((d, k), dim=1)
         x = self.bn1(torch.clamp(self.fc1(x), min=0))
         x = self.bn2(torch.clamp(self.fc2(x), min=0))
-        x = torch.clamp(self.fc3(x), min=0)
+        x = self.bn3(torch.clamp(self.fc3(x), min=0))
+        x = self.bn4(torch.clamp(self.fc4(x), min=0))
+        x = torch.clamp(self.fc5(x), min=0)
         lambda_pos = torch.clamp(x[:,0], min=.01)
         lambda_neg = torch.clamp(x[:,1], min=.01)
         p = torch.clamp(torch.clamp(x[:,2], max=.99), min=.01)
         return torch.stack((lambda_pos, lambda_neg, p), dim=1)
 
-bs = 128
+bs = 32
 train = torch.utils.data.TensorDataset(x_train, y_train)
 train_loader = torch.utils.data.DataLoader(train, batch_size=bs, shuffle=True)
 
 model = DeltaModel().double()
-optimizer = torch.optim.Adam(model.parameters(), lr=5e-5, weight_decay=.5)
-num_epoch = 5 
+optimizer = torch.optim.Adam(model.parameters(), lr=1e-5, weight_decay=.1)
+num_epoch = 2
 
 for epoch in range(num_epoch):
     running_loss = 0.0
@@ -61,14 +66,12 @@ for epoch in range(num_epoch):
         theta = model(x)
         lambda_p = theta[:, 0]
         lambda_n = theta[:, 1]
-        p = theta[:, 2]
-        
-        pos_log_likeli = torch.log(p[y > 0]) + (y[y > 0] * torch.log(lambda_p[y > 0])) - lambda_p[y > 0] - torch.lgamma(torch.abs(y[y > 0]) + 1)
-        neg_log_likeli = torch.log(1 - p[y < 0]) - (y[y < 0] * torch.log(lambda_n[y < 0])) - lambda_n[y < 0] - torch.lgamma(torch.abs(y[y < 0]) + 1)
-        zero_log_likeli = torch.log((p[y == 0] * torch.exp(-lambda_p[y == 0])) + ((1 - y[y == 0]) * torch.exp(-lambda_n[y == 0])))  
-    
-        combined = torch.cat((pos_log_likeli, neg_log_likeli, zero_log_likeli))
-        loss = -1 * torch.sum(combined)
+        p_pos = theta[:, 2]
+
+        neg_ll = torch.log(1 - p_pos[y < 0]) - (y[y < 0] * torch.log(lambda_n[y < 0])) - lambda_n[y < 0] - torch.lgamma(torch.abs(y[y < 0]) + 1)
+        zero_ll = torch.log(p_pos[y == 0] * torch.exp(-lambda_p[y == 0]) + (1 - p_pos[y == 0]) * torch.exp(-lambda_n[y == 0]))
+        pos_ll = torch.log(p_pos[y > 0]) + y[y > 0] * torch.log(lambda_p[y > 0]) - lambda_p[y > 0] - torch.lgamma(torch.abs(y[y > 0]) + 1)
+        loss = -1 * torch.sum(torch.sum(neg_ll) + torch.sum(zero_ll) + torch.sum(pos_ll))
 
         loss.backward()
         optimizer.step()
@@ -89,14 +92,13 @@ for i, data in enumerate(test_loader, 0):
     theta = model(x)
     lambda_p = theta[:, 0]
     lambda_n = theta[:, 1]
-    p = theta[:, 2]
+    p_pos = theta[:, 2]
 
-    pos_log_likeli = torch.log(p[y > 0]) + (y[y > 0] * torch.log(lambda_p[y > 0])) - lambda_p[y > 0] - torch.lgamma(torch.abs(y[y > 0]) + 1)
-    neg_log_likeli = torch.log(1 - p[y < 0]) - (y[y < 0] * torch.log(lambda_n[y < 0])) - lambda_n[y < 0] - torch.lgamma(torch.abs(y[y < 0]) + 1)
-    zero_log_likeli = torch.log((p[y == 0] * torch.exp(-lambda_p[y == 0])) + ((1 - y[y == 0]) * torch.exp(-lambda_n[y == 0])))  
-    combined = torch.cat((pos_log_likeli, neg_log_likeli, zero_log_likeli))
-    loss = -1 * torch.sum(combined)
-
+    neg_ll = torch.log(1 - p_pos[y < 0]) - (y[y < 0] * torch.log(lambda_n[y < 0])) - lambda_n[y < 0] - torch.lgamma(torch.abs(y[y < 0]) + 1)
+    zero_ll = torch.log(p_pos[y == 0] * torch.exp(-lambda_p[y == 0]) + (1 - p_pos[y == 0]) * torch.exp(-lambda_n[y == 0]))
+    pos_ll = torch.log(p_pos[y > 0]) + y[y > 0] * torch.log(lambda_p[y > 0]) - lambda_p[y > 0] - torch.lgamma(torch.abs(y[y > 0]) + 1)
+    loss = -1 * torch.sum(torch.sum(neg_ll) + torch.sum(zero_ll) + torch.sum(pos_ll))
+    
     if i == 0:
         print(y)
         print(theta)
