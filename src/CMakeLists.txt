@@ -29,3 +29,6 @@ target_link_libraries(same_game_rw ${LIBS})
 
 add_executable(same_game_cli same_game_cli.cc)
 target_link_libraries(same_game_cli ${LIBS})
+
+add_executable(roller_ball roller_ball.cc)
+target_link_libraries(roller_ball ${LIBS})

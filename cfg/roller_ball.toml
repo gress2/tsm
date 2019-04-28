@@ -1,0 +1,3 @@
+width = 10
+height = 10
+board_layout_file = "./cfg/rb_layout_1"
